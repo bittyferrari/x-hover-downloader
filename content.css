@@ -191,7 +191,7 @@ html.xid-grid div[data-testid="ScrollSnap-List"]:has([data-testid="tweetPhoto"],
   pointer-events: none; /* 不擋滑鼠,hover 行為完全不受影響 */
 
   /* 出現效果:時間與位移距離由 content.js 依設定寫入 */
-  --xid-pv-ms: 140ms;
+  --xid-pv-ms: 100ms;
   --xid-pv-shift: 40px;
   transition: opacity var(--xid-pv-ms) ease, transform var(--xid-pv-ms) cubic-bezier(0.22, 0.7, 0.3, 1);
   transform: none;

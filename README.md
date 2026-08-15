@@ -112,7 +112,7 @@ Available settings:
 - `PREVIEW_ANIM` — how the preview appears/disappears: `none`, `fade`,
   `slide-right`, `slide-left`, `slide-up`, `slide-down`, `zoom`, `zoom-out`
   (default `slide-right`).
-- `PREVIEW_ANIM_MS` — animation duration in ms (default `140`).
+- `PREVIEW_ANIM_MS` — animation duration in ms (default `100`).
 - `PREVIEW_ANIM_DISTANCE` — how far the slide effects travel, in px (default `40`).
 - `PREVIEW_BACKDROP` — dark panel + border behind the image (off = image only).
 - `PREVIEW_INFO` — the dimensions / hotkey strip under the image.

@@ -29,15 +29,15 @@
   // Fixed-box preview + save hotkey settings.
   const PV = {
     on: true,
-    delay: 120,
-    left: 55,
-    right: 2,
-    top: 5,
-    bottom: 5,
+    delay: 0,
+    left: 65,
+    right: 1,
+    top: 1,
+    bottom: 1,
     backdrop: true,
     info: true,
     anim: "slide-right",
-    animMs: 140,
+    animMs: 100,
     animDist: 40,
   };
 
@@ -83,7 +83,7 @@
     ENABLE_GESTURE = c.ENABLE_GESTURE !== false;
 
     PV.on = c.ENABLE_PREVIEW !== false;
-    PV.delay = Math.max(0, num(c.PREVIEW_DELAY_MS, 120));
+    PV.delay = Math.max(0, num(c.PREVIEW_DELAY_MS, 0));
     PV.left = num(c.PREVIEW_LEFT, 65);
     PV.right = num(c.PREVIEW_RIGHT, 1);
     PV.top = num(c.PREVIEW_TOP, 1);
@@ -91,7 +91,7 @@
     PV.backdrop = c.PREVIEW_BACKDROP !== false;
     PV.info = c.PREVIEW_INFO !== false;
     PV.anim = ANIMS.includes(c.PREVIEW_ANIM) ? c.PREVIEW_ANIM : "slide-right";
-    PV.animMs = Math.max(0, num(c.PREVIEW_ANIM_MS, 140));
+    PV.animMs = Math.max(0, num(c.PREVIEW_ANIM_MS, 100));
     PV.animDist = Math.max(0, num(c.PREVIEW_ANIM_DISTANCE, 40));
 
     SAVE_KEY.key = typeof c.SAVE_KEY === "string" && c.SAVE_KEY ? c.SAVE_KEY : "s";

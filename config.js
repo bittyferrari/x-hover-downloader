@@ -43,7 +43,7 @@ window.XID_CONFIG = {
   //   "zoom"        由小放大 (帶淡入)
   //   "zoom-out"    由大縮到定位 (帶淡入)
   PREVIEW_ANIM: "slide-right",
-  PREVIEW_ANIM_MS: 140,     // 動畫時間 (毫秒)
+  PREVIEW_ANIM_MS: 100,     // 動畫時間 (毫秒)
   PREVIEW_ANIM_DISTANCE: 40, // 滑動類效果的位移距離 (px)
 
   // --- 存圖快捷鍵 (預覽顯示中按下即存檔) ---
