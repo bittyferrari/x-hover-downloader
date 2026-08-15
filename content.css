@@ -167,3 +167,111 @@ html.xid-grid div[data-testid="ScrollSnap-List"]:has([data-testid="tweetPhoto"],
   max-height: none !important;
   border-radius: 12px !important;
 }
+
+/* =========================================================================
+   固定框大圖預覽 (Hover Zoom 風格)
+   位置由 content.js 依設定寫入 left / right / top / bottom (百分比),
+   所以預覽框永遠出現在畫面上同一個地方,不會跟著滑鼠跑。
+   ========================================================================= */
+
+#xid-preview {
+  position: fixed;
+  z-index: 2147483645;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  background: rgba(21, 32, 43, 0.92);
+  border: 1px solid rgba(139, 152, 165, 0.35);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none; /* 不擋滑鼠,hover 行為完全不受影響 */
+
+  /* 出現效果:時間與位移距離由 content.js 依設定寫入 */
+  --xid-pv-ms: 140ms;
+  --xid-pv-shift: 40px;
+  transition: opacity var(--xid-pv-ms) ease, transform var(--xid-pv-ms) cubic-bezier(0.22, 0.7, 0.3, 1);
+  transform: none;
+}
+
+#xid-preview.xid-pv-plain {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 0;
+}
+
+#xid-preview.xid-show {
+  opacity: 1;
+  transform: none;
+}
+
+/* --- 各種出現效果 (未顯示時的起始狀態) ------------------------------------ */
+
+/* 直接出現:不做任何動畫 */
+#xid-preview.xid-anim-none {
+  transition: none;
+}
+
+/* 淡入淡出:只有 opacity 變化,無位移 */
+
+/* 從右邊滑進來 */
+#xid-preview.xid-anim-slide-right:not(.xid-show) {
+  transform: translateX(var(--xid-pv-shift));
+}
+
+/* 從左邊滑進來 */
+#xid-preview.xid-anim-slide-left:not(.xid-show) {
+  transform: translateX(calc(-1 * var(--xid-pv-shift)));
+}
+
+/* 從下往上滑進來 */
+#xid-preview.xid-anim-slide-up:not(.xid-show) {
+  transform: translateY(var(--xid-pv-shift));
+}
+
+/* 從上往下滑進來 */
+#xid-preview.xid-anim-slide-down:not(.xid-show) {
+  transform: translateY(calc(-1 * var(--xid-pv-shift)));
+}
+
+/* 由小放大 */
+#xid-preview.xid-anim-zoom:not(.xid-show) {
+  transform: scale(0.92);
+}
+
+/* 由大縮到定位 */
+#xid-preview.xid-anim-zoom-out:not(.xid-show) {
+  transform: scale(1.08);
+}
+
+#xid-preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+}
+
+#xid-preview-info {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}

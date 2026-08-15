@@ -53,6 +53,36 @@
         text-align: right;
       }
       .unit { color: var(--sub); font-size: 13px; margin-left: 6px; }
+      input#SAVE_KEY {
+        width: 160px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #0c141d;
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 700;
+        text-align: center;
+        cursor: pointer;
+      }
+      input#SAVE_KEY.recording { border-color: var(--blue); color: var(--blue); font-weight: 500; }
+      select {
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #0c141d;
+        color: var(--text);
+        font-size: 15px;
+        min-width: 170px;
+      }
+      .cardtitle {
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--sub);
+        margin: 0 0 6px;
+        padding-left: 4px;
+      }
       /* toggle */
       .switch { position: relative; width: 46px; height: 26px; flex: none; }
       .switch input { opacity: 0; width: 0; height: 0; }
@@ -110,7 +140,149 @@
         </div>
       </div>
 
+      <div class="cardtitle">固定框大圖預覽</div>
       <div class="card">
+        <div class="row">
+          <div>
+            <div class="label">開啟預覽</div>
+            <div class="desc">滑鼠移到圖片上時,在固定位置的框裡顯示大圖</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="ENABLE_PREVIEW" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">顯示延遲</div>
+            <div class="desc">滑鼠停留多久才顯示大圖</div>
+          </div>
+          <div><input type="number" id="PREVIEW_DELAY_MS" min="0" max="2000" step="10" /><span class="unit">ms</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">左邊界 (left)</div>
+            <div class="desc">框的左緣距離視窗左邊,佔視窗寬度的百分比</div>
+          </div>
+          <div><input type="number" id="PREVIEW_LEFT" min="0" max="95" step="1" /><span class="unit">%</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">右邊界 (right)</div>
+            <div class="desc">框的右緣距離視窗右邊的百分比</div>
+          </div>
+          <div><input type="number" id="PREVIEW_RIGHT" min="0" max="95" step="1" /><span class="unit">%</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">上邊界 (top)</div>
+            <div class="desc">框的上緣距離視窗頂端,佔視窗高度的百分比</div>
+          </div>
+          <div><input type="number" id="PREVIEW_TOP" min="0" max="95" step="1" /><span class="unit">%</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">下邊界 (bottom)</div>
+            <div class="desc">框的下緣距離視窗底部的百分比</div>
+          </div>
+          <div><input type="number" id="PREVIEW_BOTTOM" min="0" max="95" step="1" /><span class="unit">%</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">出現效果</div>
+            <div class="desc">預覽顯示 / 消失時的動畫</div>
+          </div>
+          <select id="PREVIEW_ANIM">
+            <option value="none">直接出現 (無動畫)</option>
+            <option value="fade">淡入淡出</option>
+            <option value="slide-right">從右邊滑進來</option>
+            <option value="slide-left">從左邊滑進來</option>
+            <option value="slide-up">從下往上滑進來</option>
+            <option value="slide-down">從上往下滑進來</option>
+            <option value="zoom">由小放大</option>
+            <option value="zoom-out">由大縮到定位</option>
+          </select>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">動畫時間</div>
+            <div class="desc">越小越快,0 = 幾乎瞬間</div>
+          </div>
+          <div><input type="number" id="PREVIEW_ANIM_MS" min="0" max="1000" step="10" /><span class="unit">ms</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">位移距離</div>
+            <div class="desc">滑動類效果要從多遠的地方滑進來</div>
+          </div>
+          <div><input type="number" id="PREVIEW_ANIM_DISTANCE" min="0" max="400" step="5" /><span class="unit">px</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">底色外框</div>
+            <div class="desc">關掉的話只顯示圖片本身,沒有深色背景</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="PREVIEW_BACKDROP" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">資訊列</div>
+            <div class="desc">在大圖下方顯示原圖尺寸與存檔快捷鍵</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="PREVIEW_INFO" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="cardtitle">存圖快捷鍵</div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <div class="label">按鍵</div>
+            <div class="desc">點一下欄位,再按下你想用的按鍵。預覽顯示中按下即存原圖。</div>
+          </div>
+          <input type="text" id="SAVE_KEY" readonly />
+        </div>
+        <div class="row">
+          <div><div class="label">同時按 Ctrl</div></div>
+          <label class="switch">
+            <input type="checkbox" id="SAVE_KEY_CTRL" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="row">
+          <div><div class="label">同時按 Alt</div></div>
+          <label class="switch">
+            <input type="checkbox" id="SAVE_KEY_ALT" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="row">
+          <div><div class="label">同時按 Shift</div></div>
+          <label class="switch">
+            <input type="checkbox" id="SAVE_KEY_SHIFT" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="cardtitle">滑鼠手勢</div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <div class="label">開啟手勢下載</div>
+            <div class="desc">快速來回 hover 就自動下載;改用快捷鍵的話可以關掉</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="ENABLE_GESTURE" />
+            <span class="slider"></span>
+          </label>
+        </div>
         <div class="row">
           <div>
             <div class="label">手勢次數</div>

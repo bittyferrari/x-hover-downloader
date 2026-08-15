@@ -24,7 +24,44 @@
   const DEFAULTS = window.XID_CONFIG || {};
   const pos = (v, d) => (typeof v === "number" && v > 0 ? v : d);
 
-  let ENABLE_IMAGE, ENABLE_VIDEO, WINDOW, NEEDED, COOLDOWN;
+  let ENABLE_IMAGE, ENABLE_VIDEO, WINDOW, NEEDED, COOLDOWN, ENABLE_GESTURE;
+
+  // Fixed-box preview + save hotkey settings.
+  const PV = {
+    on: true,
+    delay: 120,
+    left: 55,
+    right: 2,
+    top: 5,
+    bottom: 5,
+    backdrop: true,
+    info: true,
+    anim: "slide-right",
+    animMs: 140,
+    animDist: 40,
+  };
+
+  const ANIMS = [
+    "none",
+    "fade",
+    "slide-right",
+    "slide-left",
+    "slide-up",
+    "slide-down",
+    "zoom",
+    "zoom-out",
+  ];
+  const SAVE_KEY = { key: "s", ctrl: false, alt: false, shift: false };
+
+  // Preview state (declared up here so applySettings() can run immediately).
+  let pvEl = null;
+  let pvImg = null;
+  let pvInfo = null;
+  let pvTimer = null;
+  let pvRegion = null; // region currently previewed
+  let pvTarget = null; // { url, filename }
+
+  const num = (v, d) => (typeof v === "number" && isFinite(v) ? v : d);
 
   // Flatten X's swipe-carousel into a wrapping grid. All of the work is done
   // by content.css; here we only flip the html.xid-grid class and the column
@@ -43,6 +80,28 @@
     WINDOW = pos(c.GESTURE_WINDOW_SECONDS, 2) * 1000; // gesture time window
     NEEDED = Math.max(1, Math.round(pos(c.GESTURE_CYCLES, 2))); // hover cycles
     COOLDOWN = pos(c.COOLDOWN_SECONDS, 3) * 1000; // per-media cooldown
+    ENABLE_GESTURE = c.ENABLE_GESTURE !== false;
+
+    PV.on = c.ENABLE_PREVIEW !== false;
+    PV.delay = Math.max(0, num(c.PREVIEW_DELAY_MS, 120));
+    PV.left = num(c.PREVIEW_LEFT, 65);
+    PV.right = num(c.PREVIEW_RIGHT, 1);
+    PV.top = num(c.PREVIEW_TOP, 1);
+    PV.bottom = num(c.PREVIEW_BOTTOM, 1);
+    PV.backdrop = c.PREVIEW_BACKDROP !== false;
+    PV.info = c.PREVIEW_INFO !== false;
+    PV.anim = ANIMS.includes(c.PREVIEW_ANIM) ? c.PREVIEW_ANIM : "slide-right";
+    PV.animMs = Math.max(0, num(c.PREVIEW_ANIM_MS, 140));
+    PV.animDist = Math.max(0, num(c.PREVIEW_ANIM_DISTANCE, 40));
+
+    SAVE_KEY.key = typeof c.SAVE_KEY === "string" && c.SAVE_KEY ? c.SAVE_KEY : "s";
+    SAVE_KEY.ctrl = c.SAVE_KEY_CTRL === true;
+    SAVE_KEY.alt = c.SAVE_KEY_ALT === true;
+    SAVE_KEY.shift = c.SAVE_KEY_SHIFT === true;
+
+    if (!PV.on) hidePreview();
+    else applyPreviewBox();
+
     applyGrid(c);
   }
   applySettings(); // start from config.js defaults immediately
@@ -132,6 +191,7 @@
       // Came from within the same region? -> internal move between layers.
       if (r.contains(e.relatedTarget)) return;
       inside.set(r, true);
+      schedulePreview(r);
     },
     true
   );
@@ -146,6 +206,9 @@
       if (r.contains(e.relatedTarget)) return;
       if (!inside.get(r)) return; // never registered an enter -> ignore
       inside.set(r, false);
+      cancelPreview(r);
+
+      if (!ENABLE_GESTURE) return;
 
       const now = Date.now();
       const c = counterFor(mediaKey(r));
@@ -370,6 +433,156 @@
       }, 220);
     }, 1300);
   }
+
+  // ---- fixed-box preview (Hover Zoom style) + save hotkey -------------------
+  //
+  // Hovering a photo shows it enlarged inside a box whose position is defined
+  // as viewport percentages (left/right/top/bottom), so it always sits in the
+  // same place — no cursor-following popup. While that preview is up, pressing
+  // the configured key saves the image at original size.
+
+  function ensurePreview() {
+    if (pvEl) return pvEl;
+    pvEl = document.createElement("div");
+    pvEl.id = "xid-preview";
+    pvImg = document.createElement("img");
+    pvImg.id = "xid-preview-img";
+    pvInfo = document.createElement("div");
+    pvInfo.id = "xid-preview-info";
+    pvEl.appendChild(pvImg);
+    pvEl.appendChild(pvInfo);
+    document.documentElement.appendChild(pvEl);
+    applyPreviewBox();
+    return pvEl;
+  }
+
+  // Position/appearance come straight from the settings, so the Options page
+  // can move the box live.
+  function applyPreviewBox() {
+    if (!pvEl) return;
+    pvEl.style.left = PV.left + "%";
+    pvEl.style.right = PV.right + "%";
+    pvEl.style.top = PV.top + "%";
+    pvEl.style.bottom = PV.bottom + "%";
+    pvEl.classList.toggle("xid-pv-plain", !PV.backdrop);
+    if (pvInfo) pvInfo.style.display = PV.info ? "" : "none";
+
+    // Entry/exit effect: the hidden-state transform lives in content.css, one
+    // class per effect; duration and slide distance come from these vars.
+    ANIMS.forEach((a) => pvEl.classList.toggle("xid-anim-" + a, a === PV.anim));
+    pvEl.style.setProperty("--xid-pv-ms", PV.animMs + "ms");
+    pvEl.style.setProperty("--xid-pv-shift", PV.animDist + "px");
+  }
+
+  function keyLabel() {
+    const k = SAVE_KEY.key;
+    return (
+      (SAVE_KEY.ctrl ? "Ctrl+" : "") +
+      (SAVE_KEY.alt ? "Alt+" : "") +
+      (SAVE_KEY.shift ? "Shift+" : "") +
+      (k.length === 1 ? k.toUpperCase() : k)
+    );
+  }
+
+  function schedulePreview(region) {
+    if (!PV.on) return;
+    if (isVideo(region)) return; // videos: no still preview
+    const raw = rawUrlFrom(region);
+    if (!raw) return;
+    clearTimeout(pvTimer);
+    pvTimer = setTimeout(() => showPreview(region, raw), PV.delay);
+  }
+
+  function cancelPreview(region) {
+    clearTimeout(pvTimer);
+    if (!pvRegion) return;
+    if (region === pvRegion || (region.contains && region.contains(pvRegion))) {
+      hidePreview();
+    }
+  }
+
+  function showPreview(region, raw) {
+    if (!document.contains(region)) return;
+    const { url, ext } = toOriginal(raw);
+    pvRegion = region;
+    pvTarget = { url, filename: buildFilename(raw, ext, region) };
+    ensurePreview();
+    applyPreviewBox();
+
+    // Show the already-cached thumbnail instantly, then swap in the original.
+    pvImg.src = raw;
+    if (pvInfo) pvInfo.textContent = "載入原圖… · " + keyLabel() + " 存檔";
+
+    const hi = new Image();
+    hi.onload = () => {
+      if (!pvTarget || pvTarget.url !== url) return; // moved on already
+      pvImg.src = url;
+      if (pvInfo) {
+        pvInfo.textContent =
+          hi.naturalWidth + "×" + hi.naturalHeight + " · " + keyLabel() + " 存檔";
+      }
+    };
+    hi.onerror = () => {
+      if (pvInfo && pvTarget && pvTarget.url === url) {
+        pvInfo.textContent = keyLabel() + " 存檔";
+      }
+    };
+    hi.src = url;
+
+    // Flush styles first so the hidden state (opacity/transform) is committed
+    // and the entry effect actually plays instead of being batched away.
+    void pvEl.offsetWidth;
+    pvEl.classList.add("xid-show");
+  }
+
+  function hidePreview() {
+    pvRegion = null;
+    pvTarget = null;
+    clearTimeout(pvTimer);
+    if (pvEl) pvEl.classList.remove("xid-show");
+  }
+
+  function matchesSaveKey(e) {
+    const k = SAVE_KEY.key;
+    if (!k) return false;
+    const hit =
+      k.length === 1
+        ? String(e.key).toLowerCase() === k.toLowerCase()
+        : e.key === k;
+    return (
+      hit &&
+      e.ctrlKey === SAVE_KEY.ctrl &&
+      e.altKey === SAVE_KEY.alt &&
+      e.shiftKey === SAVE_KEY.shift &&
+      !e.metaKey
+    );
+  }
+
+  const isTyping = (t) =>
+    !!t &&
+    (t.isContentEditable ||
+      /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ""));
+
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (!pvTarget || !pvEl || !pvEl.classList.contains("xid-show")) return;
+      if (e.key === "Escape") {
+        hidePreview();
+        return;
+      }
+      if (isTyping(e.target)) return;
+      if (!matchesSaveKey(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      send(pvTarget.url, pvTarget.filename, pvRegion);
+    },
+    true
+  );
+
+  // Clicking (e.g. opening the photo lightbox) dismisses the preview; it comes
+  // straight back on the next hover.
+  document.addEventListener("mousedown", () => hidePreview(), true);
 
   let toastEl = null;
   let toastTimer = null;

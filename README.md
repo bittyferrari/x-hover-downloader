@@ -23,6 +23,30 @@ posts, since you're logged in). The gesture then picks the largest resolution
 and downloads it. If interception hasn't caught the tweet yet, it falls back to
 X's public tweet API (`cdn.syndication.twimg.com`).
 
+## Fixed-box hover preview + save hotkey
+
+Hovering a photo shows it **enlarged inside a box at a fixed place on screen**
+(Hover Zoom+ style, but the box never follows the cursor). While the preview is
+up, pressing your chosen key saves that image at original size.
+
+The box position is given as **viewport percentages** — `left`, `right`, `top`,
+`bottom` — the default `left 65% / right 1% / top 1% / bottom 1%` fills the
+right-hand third of the window. The image is scaled to
+fit inside that box (aspect ratio kept). The on-screen thumbnail appears
+instantly and is swapped for the original-size image as soon as it loads (with
+no hover delay by default); the
+info strip under it shows the original dimensions and the current hotkey.
+
+The preview box is `pointer-events: none`, so it never blocks clicks or the
+hover gesture underneath it.
+
+- **Hotkey** — default `S`. Set it on the Options page: click the key field and
+  press the key you want (modifiers you hold are picked up, and there are
+  Ctrl / Alt / Shift toggles too). The key is ignored while you're typing in an
+  input, a textarea, or X's own composer.
+- **Esc** closes the preview; clicking anywhere also dismisses it.
+- Videos have no still preview — the gesture still downloads them.
+
 ## Installation
 
 1. Open Chrome and go to `chrome://extensions`.
@@ -81,6 +105,21 @@ Available settings:
 
 - `ENABLE_IMAGE` — turn image download on/off.
 - `ENABLE_VIDEO` — turn video download on/off.
+- `ENABLE_PREVIEW` — fixed-box hover preview on/off.
+- `PREVIEW_DELAY_MS` — how long the pointer must rest before the preview shows.
+- `PREVIEW_LEFT` / `PREVIEW_RIGHT` / `PREVIEW_TOP` / `PREVIEW_BOTTOM` — the
+  preview box position, as a percentage inset from each edge of the window.
+- `PREVIEW_ANIM` — how the preview appears/disappears: `none`, `fade`,
+  `slide-right`, `slide-left`, `slide-up`, `slide-down`, `zoom`, `zoom-out`
+  (default `slide-right`).
+- `PREVIEW_ANIM_MS` — animation duration in ms (default `140`).
+- `PREVIEW_ANIM_DISTANCE` — how far the slide effects travel, in px (default `40`).
+- `PREVIEW_BACKDROP` — dark panel + border behind the image (off = image only).
+- `PREVIEW_INFO` — the dimensions / hotkey strip under the image.
+- `SAVE_KEY`, `SAVE_KEY_CTRL`, `SAVE_KEY_ALT`, `SAVE_KEY_SHIFT` — the save
+  hotkey used while the preview is showing.
+- `ENABLE_GESTURE` — the hover gesture on/off (turn it off if you only want the
+  hotkey).
 - `GESTURE_CYCLES` — how many over→out cycles are required (default `2`).
 - `GESTURE_WINDOW_SECONDS` — the time window for the whole gesture (default `2`).
 - `COOLDOWN_SECONDS` — after a trigger, how long before the same media can
@@ -96,7 +135,7 @@ accidental downloads while browsing.
 - `options.html` / `options.js` — the Options page UI (saves to `chrome.storage.sync`)
 - `content.js` — detects the hover gesture; resolves the image URL or the video's tweet id
 - `injected.js` — MAIN-world hook that intercepts GraphQL/API responses for video variants
-- `content.css` — the toast style
+- `content.css` — toast, download frame, media grid and preview-box styles
 - `background.js` — performs the download; video-variant fallback via the tweet API
 
 ## Notes

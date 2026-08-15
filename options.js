@@ -12,18 +12,88 @@ const DEFAULTS = window.XID_CONFIG || {
   COOLDOWN_SECONDS: 3,
   GRID_MEDIA: true,
   GRID_COLUMNS: 2,
+  ENABLE_GESTURE: true,
+  ENABLE_PREVIEW: true,
+  PREVIEW_DELAY_MS: 120,
+  PREVIEW_LEFT: 55,
+  PREVIEW_RIGHT: 2,
+  PREVIEW_TOP: 5,
+  PREVIEW_BOTTOM: 5,
+  PREVIEW_BACKDROP: true,
+  PREVIEW_INFO: true,
+  PREVIEW_ANIM: "slide-right",
+  PREVIEW_ANIM_MS: 140,
+  PREVIEW_ANIM_DISTANCE: 40,
+  SAVE_KEY: "s",
+  SAVE_KEY_CTRL: false,
+  SAVE_KEY_ALT: false,
+  SAVE_KEY_SHIFT: false,
 };
 
-const BOOL_KEYS = ["ENABLE_IMAGE", "ENABLE_VIDEO", "GRID_MEDIA"];
-const NUM_KEYS = ["GESTURE_CYCLES", "GESTURE_WINDOW_SECONDS", "COOLDOWN_SECONDS", "GRID_COLUMNS"];
-const ALL_KEYS = BOOL_KEYS.concat(NUM_KEYS);
+const BOOL_KEYS = [
+  "ENABLE_IMAGE",
+  "ENABLE_VIDEO",
+  "GRID_MEDIA",
+  "ENABLE_GESTURE",
+  "ENABLE_PREVIEW",
+  "PREVIEW_BACKDROP",
+  "PREVIEW_INFO",
+  "SAVE_KEY_CTRL",
+  "SAVE_KEY_ALT",
+  "SAVE_KEY_SHIFT",
+];
+const NUM_KEYS = [
+  "GESTURE_CYCLES",
+  "GESTURE_WINDOW_SECONDS",
+  "COOLDOWN_SECONDS",
+  "GRID_COLUMNS",
+  "PREVIEW_DELAY_MS",
+  "PREVIEW_LEFT",
+  "PREVIEW_RIGHT",
+  "PREVIEW_TOP",
+  "PREVIEW_BOTTOM",
+  "PREVIEW_ANIM_MS",
+  "PREVIEW_ANIM_DISTANCE",
+];
+const STR_KEYS = ["SAVE_KEY", "PREVIEW_ANIM"];
+const ALL_KEYS = BOOL_KEYS.concat(NUM_KEYS, STR_KEYS);
+
+// Checkboxes that default to OFF (everything else defaults to ON when absent).
+const BOOL_OFF_BY_DEFAULT = ["SAVE_KEY_CTRL", "SAVE_KEY_ALT", "SAVE_KEY_SHIFT"];
 
 const $ = (id) => document.getElementById(id);
 
+function keyLabel(key, ctrl, alt, shift) {
+  const k = key || "s";
+  return (
+    (ctrl ? "Ctrl + " : "") +
+    (alt ? "Alt + " : "") +
+    (shift ? "Shift + " : "") +
+    (k.length === 1 ? k.toUpperCase() : k)
+  );
+}
+
+function refreshKeyLabel() {
+  const box = $("SAVE_KEY");
+  box.value = keyLabel(
+    box.dataset.key,
+    $("SAVE_KEY_CTRL").checked,
+    $("SAVE_KEY_ALT").checked,
+    $("SAVE_KEY_SHIFT").checked
+  );
+}
+
 // Fill the form from an effective config (defaults merged with stored values).
 function fillForm(cfg) {
-  BOOL_KEYS.forEach((k) => ($(k).checked = cfg[k] !== false));
+  BOOL_KEYS.forEach((k) => {
+    $(k).checked = BOOL_OFF_BY_DEFAULT.includes(k)
+      ? cfg[k] === true
+      : cfg[k] !== false;
+  });
   NUM_KEYS.forEach((k) => ($(k).value = cfg[k]));
+  $("PREVIEW_ANIM").value = cfg.PREVIEW_ANIM || "slide-right";
+  $("SAVE_KEY").dataset.key = cfg.SAVE_KEY || "s";
+  refreshKeyLabel();
 }
 
 function readForm() {
@@ -33,13 +103,59 @@ function readForm() {
     const v = parseFloat($(k).value);
     out[k] = isNaN(v) ? DEFAULTS[k] : v;
   });
+  out.SAVE_KEY = $("SAVE_KEY").dataset.key || "s";
+  out.PREVIEW_ANIM = $("PREVIEW_ANIM").value || "slide-right";
   // sanity clamps
   out.GESTURE_CYCLES = Math.max(1, Math.round(out.GESTURE_CYCLES));
   if (out.GESTURE_WINDOW_SECONDS <= 0) out.GESTURE_WINDOW_SECONDS = DEFAULTS.GESTURE_WINDOW_SECONDS;
   if (out.COOLDOWN_SECONDS < 0) out.COOLDOWN_SECONDS = 0;
   out.GRID_COLUMNS = Math.min(6, Math.max(1, Math.round(out.GRID_COLUMNS)));
+  if (out.PREVIEW_DELAY_MS < 0) out.PREVIEW_DELAY_MS = 0;
+  if (out.PREVIEW_ANIM_MS < 0) out.PREVIEW_ANIM_MS = 0;
+  if (out.PREVIEW_ANIM_DISTANCE < 0) out.PREVIEW_ANIM_DISTANCE = 0;
+  // Keep the preview box inside the viewport and non-degenerate.
+  ["PREVIEW_LEFT", "PREVIEW_RIGHT", "PREVIEW_TOP", "PREVIEW_BOTTOM"].forEach(
+    (k) => (out[k] = Math.min(95, Math.max(0, out[k])))
+  );
+  if (out.PREVIEW_LEFT + out.PREVIEW_RIGHT > 95) {
+    out.PREVIEW_LEFT = DEFAULTS.PREVIEW_LEFT;
+    out.PREVIEW_RIGHT = DEFAULTS.PREVIEW_RIGHT;
+  }
+  if (out.PREVIEW_TOP + out.PREVIEW_BOTTOM > 95) {
+    out.PREVIEW_TOP = DEFAULTS.PREVIEW_TOP;
+    out.PREVIEW_BOTTOM = DEFAULTS.PREVIEW_BOTTOM;
+  }
   return out;
 }
+
+// --- save-key recorder ------------------------------------------------------
+// Click the box, press the key you want. Modifiers held while pressing are
+// picked up too, and the three checkboxes stay in sync.
+(function setupKeyRecorder() {
+  const box = $("SAVE_KEY");
+  const MODS = ["Control", "Alt", "Shift", "Meta"];
+  box.addEventListener("focus", () => {
+    box.classList.add("recording");
+    box.value = "請按下按鍵…";
+  });
+  box.addEventListener("blur", () => {
+    box.classList.remove("recording");
+    refreshKeyLabel();
+  });
+  box.addEventListener("keydown", (e) => {
+    e.preventDefault();
+    if (MODS.includes(e.key)) return; // wait for a real key
+    box.dataset.key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    $("SAVE_KEY_CTRL").checked = e.ctrlKey;
+    $("SAVE_KEY_ALT").checked = e.altKey;
+    $("SAVE_KEY_SHIFT").checked = e.shiftKey;
+    refreshKeyLabel();
+    box.blur();
+  });
+  ["SAVE_KEY_CTRL", "SAVE_KEY_ALT", "SAVE_KEY_SHIFT"].forEach((k) =>
+    $(k).addEventListener("change", refreshKeyLabel)
+  );
+})();
 
 function flash(text) {
   const s = $("status");
