@@ -21,7 +21,7 @@ const DEFAULTS = window.XID_CONFIG || {
   PREVIEW_BOTTOM: 1,
   PREVIEW_BACKDROP: true,
   PREVIEW_INFO: true,
-  PREVIEW_ANIM: "slide-right",
+  PREVIEW_ANIM: "random",
   PREVIEW_ANIM_MS: 100,
   PREVIEW_ANIM_DISTANCE: 40,
   SAVE_KEY: "s",
@@ -91,7 +91,7 @@ function fillForm(cfg) {
       : cfg[k] !== false;
   });
   NUM_KEYS.forEach((k) => ($(k).value = cfg[k]));
-  $("PREVIEW_ANIM").value = cfg.PREVIEW_ANIM || "slide-right";
+  $("PREVIEW_ANIM").value = cfg.PREVIEW_ANIM || "random";
   $("SAVE_KEY").dataset.key = cfg.SAVE_KEY || "s";
   refreshKeyLabel();
 }
@@ -104,7 +104,7 @@ function readForm() {
     out[k] = isNaN(v) ? DEFAULTS[k] : v;
   });
   out.SAVE_KEY = $("SAVE_KEY").dataset.key || "s";
-  out.PREVIEW_ANIM = $("PREVIEW_ANIM").value || "slide-right";
+  out.PREVIEW_ANIM = $("PREVIEW_ANIM").value || "random";
   // sanity clamps
   out.GESTURE_CYCLES = Math.max(1, Math.round(out.GESTURE_CYCLES));
   if (out.GESTURE_WINDOW_SECONDS <= 0) out.GESTURE_WINDOW_SECONDS = DEFAULTS.GESTURE_WINDOW_SECONDS;

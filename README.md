@@ -110,8 +110,9 @@ Available settings:
 - `PREVIEW_LEFT` / `PREVIEW_RIGHT` / `PREVIEW_TOP` / `PREVIEW_BOTTOM` — the
   preview box position, as a percentage inset from each edge of the window.
 - `PREVIEW_ANIM` — how the preview appears/disappears: `none`, `fade`,
-  `slide-right`, `slide-left`, `slide-up`, `slide-down`, `zoom`, `zoom-out`
-  (default `slide-right`).
+  `slide-right`, `slide-left`, `slide-up`, `slide-down`, `zoom`, `zoom-out`,
+  or `random` (picks a different effect each time the preview shows, never
+  `none`) — default `random`.
 - `PREVIEW_ANIM_MS` — animation duration in ms (default `100`).
 - `PREVIEW_ANIM_DISTANCE` — how far the slide effects travel, in px (default `40`).
 - `PREVIEW_BACKDROP` — dark panel + border behind the image (off = image only).

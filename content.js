@@ -36,7 +36,7 @@
     bottom: 1,
     backdrop: true,
     info: true,
-    anim: "slide-right",
+    anim: "random",
     animMs: 100,
     animDist: 40,
   };
@@ -51,6 +51,11 @@
     "zoom",
     "zoom-out",
   ];
+  // "random" 不是真的 CSS class,而是每次顯示前隨機抽一種效果 (不含「無動畫」)。
+  const ANIM_CHOICES = ANIMS.concat("random");
+  const RANDOM_POOL = ANIMS.filter((a) => a !== "none");
+  let pvAnimNow = "slide-right"; // 這次實際套用的效果
+
   const SAVE_KEY = { key: "s", ctrl: false, alt: false, shift: false };
 
   // Preview state (declared up here so applySettings() can run immediately).
@@ -90,7 +95,8 @@
     PV.bottom = num(c.PREVIEW_BOTTOM, 1);
     PV.backdrop = c.PREVIEW_BACKDROP !== false;
     PV.info = c.PREVIEW_INFO !== false;
-    PV.anim = ANIMS.includes(c.PREVIEW_ANIM) ? c.PREVIEW_ANIM : "slide-right";
+    PV.anim = ANIM_CHOICES.includes(c.PREVIEW_ANIM) ? c.PREVIEW_ANIM : "random";
+    if (PV.anim !== "random") pvAnimNow = PV.anim;
     PV.animMs = Math.max(0, num(c.PREVIEW_ANIM_MS, 100));
     PV.animDist = Math.max(0, num(c.PREVIEW_ANIM_DISTANCE, 40));
 
@@ -469,7 +475,7 @@
 
     // Entry/exit effect: the hidden-state transform lives in content.css, one
     // class per effect; duration and slide distance come from these vars.
-    ANIMS.forEach((a) => pvEl.classList.toggle("xid-anim-" + a, a === PV.anim));
+    ANIMS.forEach((a) => pvEl.classList.toggle("xid-anim-" + a, a === pvAnimNow));
     pvEl.style.setProperty("--xid-pv-ms", PV.animMs + "ms");
     pvEl.style.setProperty("--xid-pv-shift", PV.animDist + "px");
   }
@@ -507,6 +513,10 @@
     pvRegion = region;
     pvTarget = { url, filename: buildFilename(raw, ext, region) };
     ensurePreview();
+    // 「隨機」:每次要顯示前重抽一種效果。
+    if (PV.anim === "random") {
+      pvAnimNow = RANDOM_POOL[Math.floor(Math.random() * RANDOM_POOL.length)];
+    }
     applyPreviewBox();
 
     // Show the already-cached thumbnail instantly, then swap in the original.

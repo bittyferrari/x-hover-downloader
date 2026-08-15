@@ -42,7 +42,8 @@ window.XID_CONFIG = {
   //   "slide-down"  從上往下滑進來
   //   "zoom"        由小放大 (帶淡入)
   //   "zoom-out"    由大縮到定位 (帶淡入)
-  PREVIEW_ANIM: "slide-right",
+  //   "random"      隨機:每次顯示前從上面的效果隨機抽一種 (不含 "none")
+  PREVIEW_ANIM: "random",
   PREVIEW_ANIM_MS: 100,     // 動畫時間 (毫秒)
   PREVIEW_ANIM_DISTANCE: 40, // 滑動類效果的位移距離 (px)
 
