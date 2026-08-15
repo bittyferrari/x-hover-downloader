@@ -76,3 +76,94 @@
 .xid-flash.xid-flash-active .xid-badge {
   background: rgba(244, 33, 46, 0.96);
 }
+
+/* =========================================================================
+   媒體九宮格 (Grid media)
+   把 X 新版「左右滑動 carousel」的多圖貼文,攤平成一次看得到全部的網格。
+   只有在 <html> 上有 .xid-grid 這個 class 時才生效 (由 content.js 依設定加上)。
+   欄數由 --xid-cols 控制 (content.js 依設定寫入)。
+
+   重要:X 的發文框工具列 (相片 / GIF / 投票 / 表情…) 用的是同一個 ScrollSnap
+   元件,所以每條規則都必須限縮在「內容物真的是媒體」的 carousel 上,
+   靠 :has([data-testid="tweetPhoto"], [data-testid="videoComponent"]) 判斷。
+   注意 :has() 不能巢狀在 :has() 裡面,所以最外層那條改用後代選擇器寫。
+   ========================================================================= */
+
+html.xid-grid {
+  --xid-cols: 2;
+  --xid-gap: 4px;
+}
+
+/* 1. 外層那個用 padding-bottom 撐出固定長寬比的盒子 -> 改成高度自動 */
+html.xid-grid div:has(> nav[aria-live="polite"] [data-testid="tweetPhoto"]),
+html.xid-grid div:has(> nav[aria-live="polite"] [data-testid="videoComponent"]) {
+  padding-bottom: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* 2. carousel 的 <nav> 原本是 absolute 填滿上面那個盒子 -> 改成正常流排版 */
+html.xid-grid nav[aria-live="polite"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]) {
+  position: static !important;
+  inset: auto !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  height: auto !important;
+}
+
+html.xid-grid nav[aria-live="polite"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]) > div {
+  display: block !important;
+  height: auto !important;
+  align-items: stretch !important;
+}
+
+/* 3. 藏掉左右箭頭按鈕 (只藏媒體 carousel 的,工具列的要留著) */
+html.xid-grid nav[aria-live="polite"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]) [data-testid="ScrollSnap-prevButtonWrapper"],
+html.xid-grid nav[aria-live="polite"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]) [data-testid="ScrollSnap-nextButtonWrapper"] {
+  display: none !important;
+}
+
+html.xid-grid nav[aria-live="polite"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]) [data-testid="ScrollSnap-SwipeableList"] {
+  width: 100% !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* 4. 把橫向捲動的清單改成會換行的網格 */
+html.xid-grid div[data-testid="ScrollSnap-List"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]) {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  gap: var(--xid-gap) !important;
+  width: 100% !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  scroll-snap-type: none !important;
+  scroll-padding: 0 !important;
+  transform: none !important;
+}
+
+/* 5. 每一格:預設 2 欄 => 約 50% 寬,之後自動往下排 */
+html.xid-grid div[data-testid="ScrollSnap-List"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]) > div[role="presentation"] {
+  flex: 0 0 calc((100% - (var(--xid-cols) - 1) * var(--xid-gap)) / var(--xid-cols)) !important;
+  width: calc((100% - (var(--xid-cols) - 1) * var(--xid-gap)) / var(--xid-cols)) !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  scroll-snap-align: none !important;
+}
+
+html.xid-grid div[data-testid="ScrollSnap-List"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]) > div[role="presentation"] > div {
+  height: auto !important;
+  max-height: none !important;
+  border-radius: 12px !important;
+}

@@ -25,6 +25,17 @@
   const pos = (v, d) => (typeof v === "number" && v > 0 ? v : d);
 
   let ENABLE_IMAGE, ENABLE_VIDEO, WINDOW, NEEDED, COOLDOWN;
+
+  // Flatten X's swipe-carousel into a wrapping grid. All of the work is done
+  // by content.css; here we only flip the html.xid-grid class and the column
+  // count, so the Options page can toggle it live.
+  function applyGrid(c) {
+    const on = c.GRID_MEDIA !== false;
+    const cols = Math.max(1, Math.round(pos(c.GRID_COLUMNS, 2)));
+    const root = document.documentElement;
+    root.classList.toggle("xid-grid", on);
+    root.style.setProperty("--xid-cols", String(cols));
+  }
   function applySettings(cfg) {
     const c = Object.assign({}, DEFAULTS, cfg || {});
     ENABLE_IMAGE = c.ENABLE_IMAGE !== false;
@@ -32,6 +43,7 @@
     WINDOW = pos(c.GESTURE_WINDOW_SECONDS, 2) * 1000; // gesture time window
     NEEDED = Math.max(1, Math.round(pos(c.GESTURE_CYCLES, 2))); // hover cycles
     COOLDOWN = pos(c.COOLDOWN_SECONDS, 3) * 1000; // per-media cooldown
+    applyGrid(c);
   }
   applySettings(); // start from config.js defaults immediately
 

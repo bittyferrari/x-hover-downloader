@@ -18,6 +18,10 @@ window.XID_CONFIG = {
   GESTURE_CYCLES: 3,          // over→out 要做幾次才觸發下載 (次數)
   GESTURE_WINDOW_SECONDS: 1.5,  // 上面那幾次要在幾秒內完成 (秒數)
 
+  // --- 多圖貼文顯示 ---
+  GRID_MEDIA: true,   // true = 把左右滑的 carousel 攤平成一次看得到全部的網格
+  GRID_COLUMNS: 2,    // 網格欄數 (2 = 每張約 50% 寬)
+
   // --- 其他 ---
   COOLDOWN_SECONDS: 3,  // 同一張圖/影片觸發後,幾秒內不再重複觸發
 };

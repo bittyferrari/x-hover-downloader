@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "X Image & Video Downloader",
-  "version": "2.0",
+  "version": "2.2",
   "description": "Quickly hover on/off an X (Twitter) image or video twice within 2 seconds to auto-download it — images at original size, videos at the highest quality.",
   "icons": {
     "16": "icons/icon16.png",
