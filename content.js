@@ -129,24 +129,125 @@
     'a[href*="/photo/"], [data-testid="tweetPhoto"], ' +
     '[data-testid="videoComponent"], [data-testid="videoPlayer"]';
 
-  const regionOf = (el) => (el && el.closest ? el.closest(REGION_SEL) : null);
+  function regionOf(el) {
+    if (!el || !el.closest) return null;
+    const r = el.closest(REGION_SEL);
+    if (r) return r;
+    if (looseCache.has(el)) return looseCache.get(el);
+    const loose = looseVideoRegion(el);
+    looseCache.set(el, loose);
+    return loose;
+  }
+
+  // mouseover fires constantly, so remember the fallback result per element.
+  const looseCache = new WeakMap();
+
+  // Sensitive / NSFW posts (and some embedded players) are rendered WITHOUT the
+  // usual data-testid wrappers, so closest(REGION_SEL) finds nothing and the
+  // hover gesture never even starts. Fall back to the nearest ancestor that
+  // actually contains a <video> and is mostly filled by it, so hovering a text
+  // block that merely shares an ancestor with a video never counts as a region.
+  function looseVideoRegion(el) {
+    let node = el.nodeType === 1 ? el : el.parentElement;
+    for (let i = 0; i < 8 && node && node !== document.body; i++) {
+      if (node.tagName === "ARTICLE") break;
+      const v = node.querySelector && node.querySelector("video");
+      if (v) {
+        const rb = node.getBoundingClientRect();
+        const vb = v.getBoundingClientRect();
+        const ra = rb.width * rb.height;
+        const va = vb.width * vb.height;
+        if (ra > 0 && va >= ra * 0.5) return node;
+        break;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
 
   const isVideo = (r) =>
-    r.matches(
-      '[data-testid="videoComponent"], [data-testid="videoPlayer"]'
-    ) || !!r.querySelector("video");
+    r.tagName === "VIDEO" ||
+    (r.matches &&
+      r.matches(
+        '[data-testid="videoComponent"], [data-testid="videoPlayer"]'
+      )) ||
+    !!(r.querySelector && r.querySelector("video"));
 
-  // ---- captured video variants (from injected.js, keyed by tweet id) --------
+  // ---- captured video variants (from injected.js) ---------------------------
+  //
+  // Two indexes: by TWEET id (what the article permalink gives us) and by MEDIA
+  // id (the number shared by the mp4 URL and the <video poster> thumbnail).
+  // The media index is the one that works for sensitive/NSFW posts, retweets
+  // and quoted tweets, where the article's permalink is often a different tweet.
 
   const captured = Object.create(null);
+  const capturedMedia = Object.create(null);
   window.addEventListener("message", (e) => {
     const d = e.data;
-    if (!d || d.__xidVideo !== true || !d.variants) return;
-    for (const id in d.variants) {
-      const list = d.variants[id];
-      if (list && list.length) captured[id] = list;
+    if (!d || d.__xidVideo !== true) return;
+    if (d.variants) {
+      for (const id in d.variants) {
+        const list = d.variants[id];
+        if (list && list.length) captured[id] = list;
+      }
+    }
+    if (d.byMedia) {
+      for (const mid in d.byMedia) {
+        const list = d.byMedia[mid];
+        if (list && list.length) capturedMedia[mid] = list;
+      }
     }
   });
+
+  // Media ids visible on the page for this region: the poster/thumbnail URLs
+  // carry the same id as the mp4.
+  //   ext_tw_video_thumb/1234/pu/img/x.jpg  <-> ext_tw_video/1234/pu/vid/...
+  //   amplify_video_thumb/1234/img/x.jpg    <-> amplify_video/1234/vid/...
+  //   tweet_video_thumb/AbCd.jpg            <-> tweet_video/AbCd.mp4  (GIF)
+  const THUMB_RE =
+    /(?:ext_tw_video_thumb|amplify_video_thumb)\/(\d+)|tweet_video_thumb\/([A-Za-z0-9_\-]+)/g;
+
+  function regionMediaIds(region) {
+    const ids = [];
+    const add = (s) => {
+      if (!s) return;
+      THUMB_RE.lastIndex = 0;
+      let m;
+      while ((m = THUMB_RE.exec(s))) {
+        const id = m[1] || m[2];
+        if (id && ids.indexOf(id) === -1) ids.push(id);
+      }
+    };
+
+    const vids =
+      region.tagName === "VIDEO" ? [region] : region.querySelectorAll("video");
+    for (const v of vids) add(v.getAttribute("poster") || "");
+
+    if (!ids.length) {
+      // Not playing yet: X shows the thumbnail as an <img> or a background div.
+      const imgs = region.querySelectorAll("img[src]");
+      for (const im of imgs) add(im.getAttribute("src"));
+      const bgs = region.querySelectorAll('[style*="background-image"]');
+      for (const b of bgs) add(b.getAttribute("style"));
+    }
+    return ids;
+  }
+
+  // A progressive mp4 sitting directly on the <video> (GIFs, some short clips).
+  // Needs no API at all, so it works on sensitive posts too.
+  function directVideoUrl(region) {
+    const v =
+      region.tagName === "VIDEO" ? region : region.querySelector("video");
+    if (!v) return null;
+    const src = v.currentSrc || v.src || "";
+    if (/^https?:/i.test(src) && /\.mp4(\?|$)/i.test(src)) return src;
+    const s = v.querySelector && v.querySelector("source[src]");
+    if (s) {
+      const u = s.getAttribute("src") || "";
+      if (/^https?:/i.test(u) && /\.mp4(\?|$)/i.test(u)) return u;
+    }
+    return null;
+  }
 
   // Per-region "is the pointer currently inside" flag (for enter/leave detection).
   const inside = new WeakMap();
@@ -163,6 +264,8 @@
       r.querySelector && r.querySelector('img[src*="pbs.twimg.com/media"]');
     if (img && img.src) return "i:" + img.src;
     if (isVideo(r)) {
+      const mids = regionMediaIds(r);
+      if (mids.length) return "m:" + mids[0];
       const c = videoTweetId(r);
       if (c) return "v:" + c.status;
     }
@@ -319,34 +422,89 @@
     return null;
   }
 
+  // Look for variants we already intercepted, best source first.
+  //   1. media id from the on-page poster  (works for NSFW / RT / quoted)
+  //   2. tweet id from the article permalink
+  //   3. the "*" bucket (payload shapes where no tweet id was found)
+  function lookupVariants(region, ctx) {
+    for (const mid of regionMediaIds(region)) {
+      const l = capturedMedia[mid];
+      if (l && l.length) return l;
+    }
+    if (ctx && captured[ctx.status] && captured[ctx.status].length) {
+      return captured[ctx.status];
+    }
+    if (captured["*"] && captured["*"].length) return captured["*"];
+    return null;
+  }
+
   function downloadVideo(region) {
-    const ctx = videoTweetId(region);
-    if (!ctx) {
-      toast("Can't identify video", false);
-      return;
-    }
+    const ctx = videoTweetId(region); // may be null / may be the wrong tweet
+    const name = (u) =>
+      urlBasename(u) || `${(ctx && ctx.status) || Date.now()}.mp4`;
 
-    // 1) Prefer variants intercepted from the page (works for sensitive posts).
-    const cap = captured[ctx.status];
+    // 1) Variants intercepted from X's own responses.
+    const cap = lookupVariants(region, ctx);
     if (cap && cap.length) {
-      const best = cap[0]; // sorted largest-first in injected.js
-      send(best.url, urlBasename(best.url) || `${ctx.status}.mp4`, region);
+      send(cap[0].url, name(cap[0].url), region); // sorted largest-first
       return;
     }
 
-    // 2) Fall back to the background syndication API.
+    // 2) A plain mp4 already on the <video> (GIFs, short clips) — no API needed,
+    //    so this also covers sensitive posts.
+    const direct = directVideoUrl(region);
+    if (direct) {
+      send(direct, name(direct), region);
+      return;
+    }
+
     toast("Fetching video…", true);
-    chrome.runtime.sendMessage({ type: "getVideo", id: ctx.status }, (resp) => {
-      if (chrome.runtime.lastError) {
-        toast("Failed", false);
+
+    // 3) The public syndication API. It returns nothing for sensitive/NSFW or
+    //    protected posts, so treat a miss here as "keep waiting", not "fail".
+    const askApi = (cb) => {
+      if (!ctx) {
+        cb(null);
         return;
       }
-      if (resp && resp.ok && resp.variants && resp.variants.length) {
-        const best = resp.variants[0];
-        send(best.url, urlBasename(best.url) || `${ctx.status}.mp4`, region);
-      } else {
-        toast("No video found", false);
+      chrome.runtime.sendMessage({ type: "getVideo", id: ctx.status }, (resp) => {
+        if (chrome.runtime.lastError) {
+          cb(null);
+          return;
+        }
+        cb(resp && resp.ok && resp.variants && resp.variants.length
+          ? resp.variants
+          : null);
+      });
+    };
+
+    askApi((vars) => {
+      if (vars) {
+        send(vars[0].url, name(vars[0].url), region);
+        return;
       }
+      // 4) X may still be loading the post's data (very common on a sensitive
+      //    post you just revealed). Re-check the intercepted cache for a while
+      //    before giving up.
+      let tries = 0;
+      const tick = () => {
+        const late = lookupVariants(region, ctx) || null;
+        if (late && late.length) {
+          send(late[0].url, name(late[0].url), region);
+          return;
+        }
+        const d2 = directVideoUrl(region);
+        if (d2) {
+          send(d2, name(d2), region);
+          return;
+        }
+        if (++tries >= 6) {
+          toast("No video found (試著先播放一次影片)", false);
+          return;
+        }
+        setTimeout(tick, 500);
+      };
+      setTimeout(tick, 400);
     });
   }
 

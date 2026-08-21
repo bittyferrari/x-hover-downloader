@@ -11,9 +11,32 @@
   if (window.__xidHooked) return;
   window.__xidHooked = true;
 
-  function post(map) {
-    if (!map || !Object.keys(map).length) return;
-    window.postMessage({ __xidVideo: true, variants: map }, "*");
+  function post(map, byMedia) {
+    const hasMap = map && Object.keys(map).length;
+    const hasMedia = byMedia && Object.keys(byMedia).length;
+    if (!hasMap && !hasMedia) return;
+    window.postMessage(
+      { __xidVideo: true, variants: map || {}, byMedia: byMedia || {} },
+      "*"
+    );
+  }
+
+  // The id inside an mp4 URL, e.g.
+  //   .../ext_tw_video/1234567890123/pu/vid/720x1280/abc.mp4 -> 1234567890123
+  //   .../amplify_video/1234567890123/vid/...                -> 1234567890123
+  //   .../tweet_video/AbCdEf.mp4                             -> AbCdEf  (GIF)
+  // This is the MEDIA id, and the exact same id appears in the <video poster>
+  // thumbnail on the page. That makes it a far more reliable link between page
+  // and intercepted data than the tweet id: it survives retweets, quoted
+  // tweets and sensitive/NSFW posts, where the surrounding article permalink
+  // frequently belongs to a different tweet than the video.
+  function mediaIdFromUrl(url) {
+    const s = String(url);
+    let m = s.match(/\/(?:ext_tw_video|amplify_video)\/(\d+)\//);
+    if (m) return m[1];
+    m = s.match(/\/tweet_video\/([A-Za-z0-9_\-]+)\.mp4/);
+    if (m) return m[1];
+    return null;
   }
 
   function resFromUrl(url) {
@@ -34,6 +57,7 @@
           bitrate: v.bitrate || 0,
           res: resFromUrl(v.url),
           area: areaFromUrl(v.url),
+          media: mediaIdFromUrl(v.url),
         });
       }
     }
@@ -70,8 +94,10 @@
   }
 
   // Recursively scan the JSON; video_info is bound to the id of its tweet.
-  function scan(obj, map, depth, ctxId) {
-    if (!obj || typeof obj !== "object" || depth > 16) return;
+  // `byMedia` additionally indexes every variant list by its media id, which is
+  // what the content script matches against the on-page <video poster>.
+  function scan(obj, map, depth, ctxId, byMedia) {
+    if (!obj || typeof obj !== "object" || depth > 24) return;
 
     const here = tweetIdOf(obj);
     if (here) ctxId = here;
@@ -88,17 +114,45 @@
 
     if (vi) {
       const uniq = normalize(vi.variants);
-      if (uniq.length && ctxId) map[ctxId] = uniq;
+      if (uniq.length) {
+        // Tweet-id index (may be missing on some payload shapes -> "*").
+        const key = ctxId || "*";
+        const prev = map[key];
+        map[key] = prev && prev.length ? mergeLists(prev, uniq) : uniq;
+
+        // Media-id index: the reliable one.
+        const mid = uniq[0].media;
+        if (mid) {
+          const p = byMedia[mid];
+          byMedia[mid] = p && p.length ? mergeLists(p, uniq) : uniq;
+        }
+      }
     }
 
     if (Array.isArray(obj)) {
-      for (const it of obj) scan(it, map, depth + 1, ctxId);
+      for (const it of obj) scan(it, map, depth + 1, ctxId, byMedia);
     } else {
       for (const k in obj) {
         const val = obj[k];
-        if (val && typeof val === "object") scan(val, map, depth + 1, ctxId);
+        if (val && typeof val === "object")
+          scan(val, map, depth + 1, ctxId, byMedia);
       }
     }
+  }
+
+  // A tweet can carry more than one video; keep every variant we saw, best first.
+  function mergeLists(a, b) {
+    const out = a.concat(b);
+    out.sort((x, y) => y.area - x.area || y.bitrate - x.bitrate);
+    const seen = new Set();
+    const uniq = [];
+    for (const v of out) {
+      if (!seen.has(v.url)) {
+        seen.add(v.url);
+        uniq.push(v);
+      }
+    }
+    return uniq;
   }
 
   function handleText(text) {
@@ -110,12 +164,18 @@
       return;
     }
     const map = {};
-    scan(data, map, 0, null);
-    post(map);
+    const byMedia = {};
+    scan(data, map, 0, null, byMedia);
+    post(map, byMedia);
   }
 
   function interesting(url) {
-    return /\/graphql\//.test(url) || /\/i\/api\//.test(url);
+    return (
+      /\/graphql\//.test(url) ||
+      /\/i\/api\//.test(url) ||
+      /\/1\.1\//.test(url) ||
+      /\/i\/videos\//.test(url)
+    );
   }
 
   // ---- hook fetch ----
