@@ -169,6 +169,23 @@ html.xid-grid div[data-testid="ScrollSnap-List"]:has([data-testid="tweetPhoto"],
 }
 
 /* =========================================================================
+   長寬比保險絲
+   X 少數貼文會把外框算成 `aspect-ratio: 0.0145833 / 1` (= 1/68.57),
+   把圖片拉成超級長條。content.js 會用圖片真實比例把它改回來,這裡再加一道
+   上限,確保任何漏網情況都不會把版面撐爆 (九宮格模式下特別明顯)。
+   不限定 .xid-grid,因為單圖貼文也會中。
+   ========================================================================= */
+
+div[style*="aspect-ratio"]:has([data-testid="tweetPhoto"]) {
+  max-height: 85vh !important;
+  overflow: hidden !important;
+}
+
+div[style*="aspect-ratio"]:has([data-testid="tweetPhoto"]) img {
+  object-fit: cover !important;
+}
+
+/* =========================================================================
    固定框大圖預覽 (Hover Zoom 風格)
    位置由 content.js 依設定寫入 left / right / top / bottom (百分比),
    所以預覽框永遠出現在畫面上同一個地方,不會跟著滑鼠跑。

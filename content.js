@@ -598,6 +598,96 @@
     }, 1300);
   }
 
+  // ---- 修正 X 偶爾算錯的 aspect-ratio ---------------------------------------
+  //
+  // 少數貼文的圖片外框會拿到像 `aspect-ratio: 0.0145833 / 1` 的值。
+  // 0.0145833 = 1 / 68.5714,而 68.5714 正是 X 舊版用 `padding-bottom: 68.5714%`
+  // 撐長寬比時的那個「百分比數值」—— 也就是少除了 100。結果高度變成寬度的
+  // 68 倍,整張圖被拉成超級長條 (真實比例其實是 1.4583,一張正常的橫圖)。
+  //
+  // 對策:用圖片真正的 naturalWidth/naturalHeight 覆寫外框的 aspect-ratio。
+  // `name=large` 只是縮邊長、比例不變,所以量到的比例可以直接信。圖還沒載入
+  // 時,退而用「× 100 / ÷ 100」把百分比數值還原回比例。
+  //
+  // 只有在比例明顯離譜 (超出 1:10 ~ 10:1) 時才動手 —— 多圖貼文的外框本來就
+  // 會故意用跟原圖不同的比例去裁切,那是正常的,不能碰。
+  // content.css 另外有一道 max-height 保險絲,擋掉任何漏網的情況。
+
+  const AR_MIN = 0.1; // 比這更窄 (太長) 就當作算錯
+  const AR_MAX = 10; // 比這更寬 (太扁) 也一樣
+  const AR_TOL = 0.02; // 差 2% 以內視為已經正確,不重寫
+
+  // 往上找第一個自己帶 inline aspect-ratio 的祖先 (X 就是寫在那裡)。
+  function arBoxOf(img) {
+    let n = img.parentElement;
+    for (let i = 0; i < 8 && n && n !== document.body; i++) {
+      if (n.style && n.style.aspectRatio) return n;
+      n = n.parentElement;
+    }
+    return null;
+  }
+
+  // "0.0145833 / 1" -> 0.0145833 ; "1.5" -> 1.5
+  function parseAR(v) {
+    const p = String(v).split("/");
+    const a = parseFloat(p[0]);
+    const b = p.length > 1 ? parseFloat(p[1]) : 1;
+    if (!isFinite(a) || !isFinite(b) || !b) return NaN;
+    return a / b;
+  }
+
+  function fixAspect(img) {
+    const box = arBoxOf(img);
+    if (!box) return;
+    const cur = parseAR(box.style.aspectRatio);
+    if (!isFinite(cur) || cur <= 0) return;
+    if (cur >= AR_MIN && cur <= AR_MAX) return; // 正常範圍 -> 完全不碰
+
+    const want =
+      img.naturalWidth && img.naturalHeight
+        ? img.naturalWidth / img.naturalHeight // 有實際尺寸就用實際尺寸
+        : cur < AR_MIN
+        ? cur * 100 // 還沒載入:還原百分比 -> 比例
+        : cur / 100;
+
+    if (!isFinite(want) || want <= 0) return;
+    if (Math.abs(want - cur) <= cur * AR_TOL) return; // 本來就是這樣 (真的超長圖)
+
+    box.style.setProperty("aspect-ratio", want + " / 1", "important");
+    box.setAttribute("data-xid-ar", "fixed");
+  }
+
+  function scanAspect() {
+    const imgs = document.querySelectorAll('img[src*="pbs.twimg.com/media"]');
+    for (const im of imgs) {
+      fixAspect(im);
+      if (!im.complete && !im.__xidArBound) {
+        im.__xidArBound = true;
+        im.addEventListener("load", () => fixAspect(im), { once: true });
+      }
+    }
+  }
+
+  // X 會不斷 re-render 並蓋掉 inline style,所以要持續盯著。
+  // 我們自己寫回去的值也會觸發這個 observer,但下一輪 cur 已經在正常範圍內,
+  // fixAspect() 會直接 return,不會無限迴圈。
+  let arTimer = null;
+  function scheduleAspectScan() {
+    if (arTimer) return;
+    arTimer = setTimeout(() => {
+      arTimer = null;
+      scanAspect();
+    }, 120);
+  }
+
+  new MutationObserver(scheduleAspectScan).observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["style", "src"],
+  });
+  scanAspect();
+
   // ---- fixed-box preview (Hover Zoom style) + save hotkey -------------------
   //
   // Hovering a photo shows it enlarged inside a box whose position is defined
