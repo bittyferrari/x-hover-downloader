@@ -28,6 +28,19 @@
   // Videos get no still preview, so the save hotkey works off the plain hover.
   let VIDEO_KEY, VIDEO_HINT;
 
+  // Pointer-trace gesture settings (circle / zig-zag drawn on the media).
+  const TR = {
+    on: true,
+    circle: true,
+    zx: true,
+    zy: true,
+    window: 1200, // ms the whole gesture must fit into
+    turns: 1, // full turns needed for a circle
+    radius: 25, // px — a circle must be at least this big
+    swings: 4, // direction reversals needed for a zig-zag
+    seg: 30, // px — how far each swing must travel to count
+  };
+
   // Fixed-box preview + save hotkey settings.
   const PV = {
     on: true,
@@ -59,6 +72,19 @@
   let pvAnimNow = "slide-right"; // 這次實際套用的效果
 
   const SAVE_KEY = { key: "s", ctrl: false, alt: false, shift: false };
+
+  // Video-hover / hotkey-hint state. Declared up here for the same reason as the
+  // preview state below: applySettings() runs immediately and calls
+  // hideVideoHint() / resetTrace(), so these must already be initialised.
+  let hoverVideo = null;
+  let vhEl = null;
+  let vhAlive = false;
+
+  // Pointer-trace state (see the trace gesture section further down).
+  let trRegion = null;
+  let trPts = []; // [{x, y, t}] within the time window
+  const zzX = { dir: 0, ext: 0, count: 0, since: 0 };
+  const zzY = { dir: 0, ext: 0, count: 0, since: 0 };
 
   // Preview state (declared up here so applySettings() can run immediately).
   let pvEl = null;
@@ -92,6 +118,17 @@
     VIDEO_HINT = c.VIDEO_KEY_HINT !== false;
     if (!VIDEO_KEY || !VIDEO_HINT) hideVideoHint();
 
+    TR.on = c.ENABLE_TRACE !== false;
+    TR.circle = c.TRACE_CIRCLE !== false;
+    TR.zx = c.TRACE_ZIGZAG_X !== false;
+    TR.zy = c.TRACE_ZIGZAG_Y !== false;
+    TR.window = pos(c.TRACE_WINDOW_SECONDS, 1.2) * 1000;
+    TR.turns = Math.max(0.5, num(c.TRACE_CIRCLE_TURNS, 1));
+    TR.radius = Math.max(5, num(c.TRACE_CIRCLE_RADIUS, 25));
+    TR.swings = Math.max(2, Math.round(pos(c.TRACE_ZIGZAG_SWINGS, 4)));
+    TR.seg = Math.max(5, num(c.TRACE_ZIGZAG_MIN_PX, 30));
+    resetTrace();
+
     PV.on = c.ENABLE_PREVIEW !== false;
     PV.delay = Math.max(0, num(c.PREVIEW_DELAY_MS, 0));
     PV.left = num(c.PREVIEW_LEFT, 65);
@@ -115,15 +152,25 @@
 
     applyGrid(c);
   }
-  applySettings(); // start from config.js defaults immediately
+  // A throw in here would kill the whole content script (and every feature with
+  // it), so keep it contained and fall back to whatever is already applied.
+  function applySettingsSafe(cfg) {
+    try {
+      applySettings(cfg);
+    } catch (err) {
+      console.error("[x-hover-downloader] settings failed:", err);
+    }
+  }
+
+  applySettingsSafe(); // start from config.js defaults immediately
 
   try {
     chrome.storage.sync.get(null, (stored) => {
-      if (!chrome.runtime.lastError && stored) applySettings(stored);
+      if (!chrome.runtime.lastError && stored) applySettingsSafe(stored);
     });
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== "sync") return;
-      chrome.storage.sync.get(null, (stored) => applySettings(stored || {}));
+      chrome.storage.sync.get(null, (stored) => applySettingsSafe(stored || {}));
     });
   } catch (e) {
     /* storage unavailable -> keep config.js defaults */
@@ -344,6 +391,184 @@
       }
     },
     true
+  );
+
+  // ---- pointer-trace gestures (circle / zig-zag) ----------------------------
+  //
+  // Instead of counting hover in/out, this watches the actual pointer PATH while
+  // it stays over one piece of media:
+  //
+  //   circle  — sum the signed turn angle between consecutive steps. A real loop
+  //             keeps turning the same way, so the sum reaches ±360°; ordinary
+  //             wobble cancels itself out because the signs alternate.
+  //   zig-zag — track the extreme reached along one axis; every time the pointer
+  //             comes back the other way by at least TR.seg px, that's a swing.
+  //
+  // Both run on the SAME sample buffer and reset whenever the pointer leaves the
+  // region or goes quiet for longer than the time window, so a gesture always has
+  // to be one continuous, deliberate motion.
+
+  const MIN_STEP = 4; // px — ignore sub-pixel jitter between samples
+
+  function resetZig(z, v, now) {
+    z.dir = 0;
+    z.ext = v;
+    z.count = 0;
+    z.since = now;
+  }
+
+  function resetTrace(region, x, y, now) {
+    trRegion = region || null;
+    trPts = [];
+    const t = now || Date.now();
+    resetZig(zzX, x || 0, t);
+    resetZig(zzY, y || 0, t);
+  }
+
+  // One axis of the zig-zag detector. Returns the swing count so far.
+  function feedZig(z, v, now) {
+    if (now - z.since > TR.window) resetZig(z, v, now); // too slow -> start over
+    if (z.dir === 0) {
+      if (v - z.ext >= TR.seg) {
+        z.dir = 1;
+        z.ext = v;
+        z.count = 1;
+        z.since = now;
+      } else if (z.ext - v >= TR.seg) {
+        z.dir = -1;
+        z.ext = v;
+        z.count = 1;
+        z.since = now;
+      }
+      return z.count;
+    }
+    if (z.dir === 1) {
+      if (v > z.ext) z.ext = v;
+      else if (z.ext - v >= TR.seg) {
+        z.dir = -1;
+        z.ext = v;
+        z.count++;
+      }
+    } else {
+      if (v < z.ext) z.ext = v;
+      else if (v - z.ext >= TR.seg) {
+        z.dir = 1;
+        z.ext = v;
+        z.count++;
+      }
+    }
+    return z.count;
+  }
+
+  // Signed turn accumulated over the WHOLE buffered path. Recomputed from the
+  // buffer each time (it only holds one time window of samples) so that old
+  // samples rolling out of the window take their contribution with them —
+  // otherwise a long slow drift would eventually fake a loop.
+  function circleHit() {
+    if (trPts.length < 6) return false;
+
+    let sum = 0;
+    let prev = null;
+    let anchor = trPts[0];
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+
+    for (const p of trPts) {
+      if (p.x < x0) x0 = p.x;
+      if (p.x > x1) x1 = p.x;
+      if (p.y < y0) y0 = p.y;
+      if (p.y > y1) y1 = p.y;
+
+      const vx = p.x - anchor.x;
+      const vy = p.y - anchor.y;
+      if (Math.hypot(vx, vy) < MIN_STEP) continue; // jitter -> not a real step
+      if (prev) {
+        let d = Math.atan2(vy, vx) - Math.atan2(prev.y, prev.x);
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        // A near-180° flip is a reversal, not a turn — never a loop.
+        if (Math.abs(d) < Math.PI * 0.9) sum += d;
+      }
+      prev = { x: vx, y: vy };
+      anchor = p;
+    }
+
+    // One traversal of a closed loop turns exactly 360°, but we can only measure
+    // the turn BETWEEN steps, so a perfect single lap lands a step short. Allow
+    // ~17° of slack; far too little for wobble to sneak past.
+    if (Math.abs(sum) < TR.turns * 2 * Math.PI - 0.3) return false;
+    // Big enough to be a deliberate circle rather than a wrist twitch?
+    return Math.min(x1 - x0, y1 - y0) >= TR.radius * 2;
+  }
+
+  // Fire once, then arm the same per-media cooldown the hover gesture uses.
+  // Either way the buffer starts over, so one gesture can only fire once and a
+  // cooled-down gesture doesn't fire the moment the cooldown expires.
+  function traceHit(region, x, y) {
+    const now = Date.now();
+    const c = counterFor(mediaKey(region));
+    resetTrace(region, x, y, now);
+    if (now < c.cooldownUntil) return;
+    c.cooldownUntil = now + COOLDOWN;
+    c.leaves = [];
+    trigger(region);
+  }
+
+  document.addEventListener(
+    "mousemove",
+    (e) => {
+      if (!TR.on) return;
+      if (e.buttons) return; // dragging / selecting is not a gesture
+
+      const r = regionOf(e.target);
+      if (!r) {
+        if (trRegion) resetTrace(null);
+        return;
+      }
+
+      const now = Date.now();
+      const x = e.clientX;
+      const y = e.clientY;
+
+      if (r !== trRegion) {
+        resetTrace(r, x, y, now);
+        trPts.push({ x, y, t: now });
+        return;
+      }
+
+      const last = trPts[trPts.length - 1];
+      if (last) {
+        if (now - last.t > TR.window) {
+          // Paused too long — treat what follows as a fresh gesture.
+          resetTrace(r, x, y, now);
+          trPts.push({ x, y, t: now });
+          return;
+        }
+        if (Math.abs(x - last.x) + Math.abs(y - last.y) < 2) return;
+      }
+
+      trPts.push({ x, y, t: now });
+      while (trPts.length && now - trPts[0].t > TR.window) trPts.shift();
+
+      if (TR.circle && circleHit()) {
+        traceHit(r, x, y);
+        return;
+      }
+      if (TR.zx && feedZig(zzX, x, now) >= TR.swings) {
+        traceHit(r, x, y);
+        return;
+      }
+      if (TR.zy && feedZig(zzY, y, now) >= TR.swings) {
+        traceHit(r, x, y);
+      }
+    },
+    true
+  );
+
+  // Leaving the window clears any half-finished gesture. No capture here: with
+  // capture we would also catch every descendant's mouseleave and reset the
+  // buffer while the pointer is still happily inside the media.
+  document.documentElement.addEventListener("mouseleave", () =>
+    resetTrace(null)
   );
 
   // ---- image URL extraction -------------------------------------------------
@@ -813,10 +1038,6 @@
   // there is no preview box to hang the hotkey off. Instead we remember the
   // video region the pointer is currently over and let the same save key
   // download it. A small badge in the corner reminds you the key is live.
-
-  let hoverVideo = null;
-  let vhEl = null;
-  let vhAlive = false;
 
   function enterVideo(region) {
     hoverVideo = region;

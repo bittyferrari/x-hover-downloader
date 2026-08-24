@@ -30,6 +30,15 @@ const DEFAULTS = window.XID_CONFIG || {
   SAVE_KEY_SHIFT: false,
   ENABLE_VIDEO_KEY: true,
   VIDEO_KEY_HINT: true,
+  ENABLE_TRACE: true,
+  TRACE_CIRCLE: true,
+  TRACE_ZIGZAG_X: true,
+  TRACE_ZIGZAG_Y: true,
+  TRACE_WINDOW_SECONDS: 1.2,
+  TRACE_CIRCLE_TURNS: 1,
+  TRACE_CIRCLE_RADIUS: 25,
+  TRACE_ZIGZAG_SWINGS: 4,
+  TRACE_ZIGZAG_MIN_PX: 30,
 };
 
 const BOOL_KEYS = [
@@ -45,6 +54,10 @@ const BOOL_KEYS = [
   "SAVE_KEY_SHIFT",
   "ENABLE_VIDEO_KEY",
   "VIDEO_KEY_HINT",
+  "ENABLE_TRACE",
+  "TRACE_CIRCLE",
+  "TRACE_ZIGZAG_X",
+  "TRACE_ZIGZAG_Y",
 ];
 const NUM_KEYS = [
   "GESTURE_CYCLES",
@@ -58,6 +71,11 @@ const NUM_KEYS = [
   "PREVIEW_BOTTOM",
   "PREVIEW_ANIM_MS",
   "PREVIEW_ANIM_DISTANCE",
+  "TRACE_WINDOW_SECONDS",
+  "TRACE_CIRCLE_TURNS",
+  "TRACE_CIRCLE_RADIUS",
+  "TRACE_ZIGZAG_SWINGS",
+  "TRACE_ZIGZAG_MIN_PX",
 ];
 const STR_KEYS = ["SAVE_KEY", "PREVIEW_ANIM"];
 const ALL_KEYS = BOOL_KEYS.concat(NUM_KEYS, STR_KEYS);
@@ -117,6 +135,13 @@ function readForm() {
   if (out.PREVIEW_DELAY_MS < 0) out.PREVIEW_DELAY_MS = 0;
   if (out.PREVIEW_ANIM_MS < 0) out.PREVIEW_ANIM_MS = 0;
   if (out.PREVIEW_ANIM_DISTANCE < 0) out.PREVIEW_ANIM_DISTANCE = 0;
+  // trace gesture sanity clamps
+  if (out.TRACE_WINDOW_SECONDS <= 0)
+    out.TRACE_WINDOW_SECONDS = DEFAULTS.TRACE_WINDOW_SECONDS;
+  out.TRACE_CIRCLE_TURNS = Math.max(0.5, out.TRACE_CIRCLE_TURNS);
+  out.TRACE_CIRCLE_RADIUS = Math.max(5, out.TRACE_CIRCLE_RADIUS);
+  out.TRACE_ZIGZAG_SWINGS = Math.max(2, Math.round(out.TRACE_ZIGZAG_SWINGS));
+  out.TRACE_ZIGZAG_MIN_PX = Math.max(5, out.TRACE_ZIGZAG_MIN_PX);
   // Keep the preview box inside the viewport and non-degenerate.
   ["PREVIEW_LEFT", "PREVIEW_RIGHT", "PREVIEW_TOP", "PREVIEW_BOTTOM"].forEach(
     (k) => (out[k] = Math.min(95, Math.max(0, out[k])))

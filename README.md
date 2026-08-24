@@ -45,7 +45,25 @@ hover gesture underneath it.
   Ctrl / Alt / Shift toggles too). The key is ignored while you're typing in an
   input, a textarea, or X's own composer.
 - **Esc** closes the preview; clicking anywhere also dismisses it.
-- Videos have no still preview — the gesture still downloads them.
+- Videos have no still preview, so the same key saves whichever video the
+  pointer is hovering; a small "S 存影片" badge in the corner shows it's armed.
+
+## Trace gestures (draw on the media)
+
+Besides the hover in/out gesture, the extension watches the pointer **path**
+while it stays over one image or video. Two shapes trigger a save:
+
+- **Circle** — loop the pointer once over the media. Detected by summing the
+  signed turn angle between steps: a real loop keeps turning the same way and
+  reaches 360°, while ordinary wobble cancels itself out. A minimum radius keeps
+  wrist twitches from counting.
+- **Zig-zag** — shake left/right (or up/down) four times. Detected by tracking
+  the extreme reached along the axis; every reversal of at least 30px is a swing.
+
+Both must be one continuous motion inside the time window, and both respect the
+same per-media cooldown as the hover gesture. Because they never need the pointer
+to leave the element, they work on videos and inside the flattened media grid.
+Dragging (any mouse button held) is ignored, so selecting text is unaffected.
 
 ## Installation
 
@@ -123,8 +141,19 @@ Available settings:
   saves whichever video the pointer is currently hovering (default `true`).
 - `VIDEO_KEY_HINT` — small "S 存影片" badge in the video's top-right corner
   while you hover it (default `true`).
-- `ENABLE_GESTURE` — the hover gesture on/off (turn it off if you only want the
-  hotkey).
+- `ENABLE_TRACE` — pointer-trace gestures on/off. These watch the mouse PATH
+  while it stays over one image/video, so they work on videos and inside the
+  media grid, and never need the pointer to leave the element.
+- `TRACE_CIRCLE` — draw a circle on the media to save it.
+- `TRACE_ZIGZAG_X` / `TRACE_ZIGZAG_Y` — shake left/right or up/down to save.
+- `TRACE_WINDOW_SECONDS` — the whole trace gesture must fit in this (default `1.2`).
+- `TRACE_CIRCLE_TURNS` — full turns required (default `1`; `1.5` = a lap and a half).
+- `TRACE_CIRCLE_RADIUS` — minimum circle radius in px, so a wrist twitch doesn't
+  count (default `25`).
+- `TRACE_ZIGZAG_SWINGS` — direction reversals required (default `4`).
+- `TRACE_ZIGZAG_MIN_PX` — how far each swing must travel (default `30`).
+- `ENABLE_GESTURE` — the hover in/out gesture on/off (independent of the trace
+  gestures; turn either off on its own).
 - `GESTURE_CYCLES` — how many over→out cycles are required (default `2`).
 - `GESTURE_WINDOW_SECONDS` — the time window for the whole gesture (default `2`).
 - `COOLDOWN_SECONDS` — after a trigger, how long before the same media can

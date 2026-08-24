@@ -58,6 +58,18 @@ window.XID_CONFIG = {
   ENABLE_VIDEO_KEY: true,   // 影片也能用快捷鍵存檔
   VIDEO_KEY_HINT: true,     // 在影片右上角顯示「S 存影片」提示
 
+  // --- 軌跡手勢 (在圖片/影片上「畫」出來的手勢) ---
+  // 判斷的是滑鼠在同一張圖/影片上的移動軌跡,不需要移出元素。
+  ENABLE_TRACE: true,          // 軌跡手勢總開關
+  TRACE_CIRCLE: true,          // 畫圈 = 存檔
+  TRACE_ZIGZAG_X: true,        // 左右來回抖動 = 存檔
+  TRACE_ZIGZAG_Y: true,        // 上下來回抖動 = 存檔
+  TRACE_WINDOW_SECONDS: 1.2,   // 整個手勢要在幾秒內完成
+  TRACE_CIRCLE_TURNS: 1,       // 要畫幾圈 (可用 0.5 的倍數,例如 1.5)
+  TRACE_CIRCLE_RADIUS: 25,     // 圈至少要多大 (半徑 px);太小的手抖不算
+  TRACE_ZIGZAG_SWINGS: 4,      // 要來回反向幾次
+  TRACE_ZIGZAG_MIN_PX: 30,     // 每一次來回至少要移動多少 px 才算一次
+
   // --- 多圖貼文顯示 ---
   GRID_MEDIA: true,   // true = 把左右滑的 carousel 攤平成一次看得到全部的網格
   GRID_COLUMNS: 2,    // 網格欄數 (2 = 每張約 50% 寬)

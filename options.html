@@ -292,7 +292,86 @@
         </div>
       </div>
 
-      <div class="cardtitle">滑鼠手勢</div>
+      <div class="cardtitle">軌跡手勢 (在圖上畫)</div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <div class="label">開啟軌跡手勢</div>
+            <div class="desc">判斷滑鼠在同一張圖 / 影片上的移動軌跡,不用移出元素</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="ENABLE_TRACE" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">畫圈存檔</div>
+            <div class="desc">在圖 / 影片上畫一個圈就下載</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="TRACE_CIRCLE" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">左右來回存檔</div>
+            <div class="desc">水平方向快速來回抖動</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="TRACE_ZIGZAG_X" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">上下來回存檔</div>
+            <div class="desc">垂直方向快速來回抖動</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="TRACE_ZIGZAG_Y" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">時間範圍</div>
+            <div class="desc">整個手勢要在幾秒內完成;越短越不容易誤觸</div>
+          </div>
+          <div><input type="number" id="TRACE_WINDOW_SECONDS" min="0.3" max="5" step="0.1" /><span class="unit">秒</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">圈數</div>
+            <div class="desc">要畫幾圈才觸發 (1.5 = 一圈半)</div>
+          </div>
+          <div><input type="number" id="TRACE_CIRCLE_TURNS" min="0.5" max="4" step="0.5" /><span class="unit">圈</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">最小圈半徑</div>
+            <div class="desc">圈太小視為手抖,不算</div>
+          </div>
+          <div><input type="number" id="TRACE_CIRCLE_RADIUS" min="5" max="200" step="5" /><span class="unit">px</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">來回次數</div>
+            <div class="desc">抖動要反向幾次才觸發</div>
+          </div>
+          <div><input type="number" id="TRACE_ZIGZAG_SWINGS" min="2" max="10" step="1" /><span class="unit">次</span></div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="label">每次最短距離</div>
+            <div class="desc">每一次來回至少要移動這麼多才算一次</div>
+          </div>
+          <div><input type="number" id="TRACE_ZIGZAG_MIN_PX" min="5" max="300" step="5" /><span class="unit">px</span></div>
+        </div>
+      </div>
+
+      <div class="cardtitle">進出手勢 (hover in / out)</div>
       <div class="card">
         <div class="row">
           <div>
