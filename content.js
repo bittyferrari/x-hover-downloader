@@ -25,6 +25,8 @@
   const pos = (v, d) => (typeof v === "number" && v > 0 ? v : d);
 
   let ENABLE_IMAGE, ENABLE_VIDEO, WINDOW, NEEDED, COOLDOWN, ENABLE_GESTURE;
+  // Videos get no still preview, so the save hotkey works off the plain hover.
+  let VIDEO_KEY, VIDEO_HINT;
 
   // Fixed-box preview + save hotkey settings.
   const PV = {
@@ -86,6 +88,9 @@
     NEEDED = Math.max(1, Math.round(pos(c.GESTURE_CYCLES, 2))); // hover cycles
     COOLDOWN = pos(c.COOLDOWN_SECONDS, 3) * 1000; // per-media cooldown
     ENABLE_GESTURE = c.ENABLE_GESTURE !== false;
+    VIDEO_KEY = c.ENABLE_VIDEO_KEY !== false;
+    VIDEO_HINT = c.VIDEO_KEY_HINT !== false;
+    if (!VIDEO_KEY || !VIDEO_HINT) hideVideoHint();
 
     PV.on = c.ENABLE_PREVIEW !== false;
     PV.delay = Math.max(0, num(c.PREVIEW_DELAY_MS, 0));
@@ -300,6 +305,7 @@
       // Came from within the same region? -> internal move between layers.
       if (r.contains(e.relatedTarget)) return;
       inside.set(r, true);
+      if (isVideo(r)) enterVideo(r);
       schedulePreview(r);
     },
     true
@@ -315,6 +321,7 @@
       if (r.contains(e.relatedTarget)) return;
       if (!inside.get(r)) return; // never registered an enter -> ignore
       inside.set(r, false);
+      if (r === hoverVideo) leaveVideo();
       cancelPreview(r);
 
       if (!ENABLE_GESTURE) return;
@@ -800,6 +807,73 @@
     if (pvEl) pvEl.classList.remove("xid-show");
   }
 
+  // ---- video hover + save hotkey --------------------------------------------
+  //
+  // Videos deliberately get no still preview (X keeps playing underneath), so
+  // there is no preview box to hang the hotkey off. Instead we remember the
+  // video region the pointer is currently over and let the same save key
+  // download it. A small badge in the corner reminds you the key is live.
+
+  let hoverVideo = null;
+  let vhEl = null;
+  let vhAlive = false;
+
+  function enterVideo(region) {
+    hoverVideo = region;
+    if (VIDEO_KEY && VIDEO_HINT && ENABLE_VIDEO) showVideoHint(region);
+  }
+
+  function leaveVideo() {
+    hoverVideo = null;
+    hideVideoHint();
+  }
+
+  // Fixed-positioned badge kept aligned to the video by a rAF loop, so it
+  // follows the page as you scroll and never touches X's own layout.
+  function showVideoHint(region) {
+    if (!region.getBoundingClientRect) return;
+    if (!vhEl) {
+      vhEl = document.createElement("div");
+      vhEl.className = "xid-vhint";
+      document.documentElement.appendChild(vhEl);
+    }
+    vhEl.textContent = keyLabel() + " 存影片";
+    if (vhAlive) return; // loop already running, just retargeted below
+    vhAlive = true;
+    (function sync() {
+      if (!vhAlive || !vhEl) return;
+      const r = hoverVideo && hoverVideo.getBoundingClientRect();
+      if (r && r.width && r.height) {
+        vhEl.style.display = "";
+        vhEl.style.left = r.left + r.width - 8 + "px"; // CSS pulls it back in
+        vhEl.style.top = r.top + 8 + "px";
+      } else {
+        vhEl.style.display = "none";
+      }
+      requestAnimationFrame(sync);
+    })();
+    requestAnimationFrame(() => vhEl && vhEl.classList.add("xid-show"));
+  }
+
+  function hideVideoHint() {
+    vhAlive = false;
+    if (vhEl) vhEl.classList.remove("xid-show");
+  }
+
+  // Save the hovered video, honouring the same per-media cooldown the gesture
+  // uses so a held key can't fire a dozen downloads.
+  function saveHoveredVideo() {
+    const r = hoverVideo;
+    if (!r || !document.contains(r)) return false;
+    const now = Date.now();
+    const c = counterFor(mediaKey(r));
+    if (now < c.cooldownUntil) return true; // still cooling down: swallow the key
+    c.cooldownUntil = now + COOLDOWN;
+    c.leaves = [];
+    downloadVideo(r);
+    return true;
+  }
+
   function matchesSaveKey(e) {
     const k = SAVE_KEY.key;
     if (!k) return false;
@@ -824,16 +898,34 @@
   document.addEventListener(
     "keydown",
     (e) => {
-      if (!pvTarget || !pvEl || !pvEl.classList.contains("xid-show")) return;
+      const previewUp = !!(
+        pvTarget &&
+        pvEl &&
+        pvEl.classList.contains("xid-show")
+      );
       if (e.key === "Escape") {
-        hidePreview();
+        if (previewUp) hidePreview();
         return;
       }
+      if (e.repeat) return; // holding the key must not queue downloads
       if (isTyping(e.target)) return;
       if (!matchesSaveKey(e)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      send(pvTarget.url, pvTarget.filename, pvRegion);
+
+      // Image: the preview box is up -> save the original.
+      if (previewUp) {
+        e.preventDefault();
+        e.stopPropagation();
+        send(pvTarget.url, pvTarget.filename, pvRegion);
+        return;
+      }
+
+      // Video: no preview, so use whichever video the pointer is over.
+      if (VIDEO_KEY && ENABLE_VIDEO && hoverVideo) {
+        if (saveHoveredVideo()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
     },
     true
   );

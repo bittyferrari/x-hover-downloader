@@ -28,6 +28,8 @@ const DEFAULTS = window.XID_CONFIG || {
   SAVE_KEY_CTRL: false,
   SAVE_KEY_ALT: false,
   SAVE_KEY_SHIFT: false,
+  ENABLE_VIDEO_KEY: true,
+  VIDEO_KEY_HINT: true,
 };
 
 const BOOL_KEYS = [
@@ -41,6 +43,8 @@ const BOOL_KEYS = [
   "SAVE_KEY_CTRL",
   "SAVE_KEY_ALT",
   "SAVE_KEY_SHIFT",
+  "ENABLE_VIDEO_KEY",
+  "VIDEO_KEY_HINT",
 ];
 const NUM_KEYS = [
   "GESTURE_CYCLES",

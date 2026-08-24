@@ -31,6 +31,31 @@
   border: 1px solid rgba(244, 33, 46, 0.6);
 }
 
+/* 影片右上角的快捷鍵提示 (影片沒有大圖預覽,靠這個提醒可以按鍵存檔) */
+.xid-vhint {
+  position: fixed;
+  z-index: 2147483646;
+  transform: translateX(-100%);
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(21, 32, 43, 0.92);
+  border: 1px solid rgba(29, 155, 240, 0.7);
+  color: #fff;
+  font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.xid-vhint.xid-show {
+  opacity: 1;
+}
+
 /* Highlight drawn over the media that was just downloaded */
 .xid-flash {
   position: fixed;

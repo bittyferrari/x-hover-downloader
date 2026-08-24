@@ -53,6 +53,11 @@ window.XID_CONFIG = {
   SAVE_KEY_ALT: false,      // 是否要同時按 Alt
   SAVE_KEY_SHIFT: false,    // 是否要同時按 Shift
 
+  // --- 影片快捷鍵 ---
+  // 影片不會跳出大圖預覽,所以改成「滑鼠停在影片上時按同一顆鍵」就下載。
+  ENABLE_VIDEO_KEY: true,   // 影片也能用快捷鍵存檔
+  VIDEO_KEY_HINT: true,     // 在影片右上角顯示「S 存影片」提示
+
   // --- 多圖貼文顯示 ---
   GRID_MEDIA: true,   // true = 把左右滑的 carousel 攤平成一次看得到全部的網格
   GRID_COLUMNS: 2,    // 網格欄數 (2 = 每張約 50% 寬)

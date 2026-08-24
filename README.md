@@ -118,7 +118,11 @@ Available settings:
 - `PREVIEW_BACKDROP` — dark panel + border behind the image (off = image only).
 - `PREVIEW_INFO` — the dimensions / hotkey strip under the image.
 - `SAVE_KEY`, `SAVE_KEY_CTRL`, `SAVE_KEY_ALT`, `SAVE_KEY_SHIFT` — the save
-  hotkey used while the preview is showing.
+  hotkey used while the preview is showing (default `S`).
+- `ENABLE_VIDEO_KEY` — videos never open the still preview, so the same hotkey
+  saves whichever video the pointer is currently hovering (default `true`).
+- `VIDEO_KEY_HINT` — small "S 存影片" badge in the video's top-right corner
+  while you hover it (default `true`).
 - `ENABLE_GESTURE` — the hover gesture on/off (turn it off if you only want the
   hotkey).
 - `GESTURE_CYCLES` — how many over→out cycles are required (default `2`).
