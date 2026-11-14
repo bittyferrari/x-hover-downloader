@@ -193,11 +193,11 @@ html.xid-grid div[data-testid="ScrollSnap-List"]:has([data-testid="tweetPhoto"],
   border-radius: 12px !important;
 }
 
-/* 6. 超過 4 張 (X 現在可以傳超過 4 張圖):改成一排 3 張,每格最高 50vh。
+/* 6. 超過 4 張 (X 現在可以傳超過 4 張圖):改成一排 4 張,每格最高 50vh。
       用「第 5 個 presentation 子元素存在」來判斷張數 > 4。
-      --xid-cols 設在清單上,子格的寬度 calc 會繼承到 3。 */
+      --xid-cols 設在清單上,子格的寬度 calc 會繼承到 4。 */
 html.xid-grid div[data-testid="ScrollSnap-List"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]):has(> div[role="presentation"] ~ div[role="presentation"] ~ div[role="presentation"] ~ div[role="presentation"] ~ div[role="presentation"]) {
-  --xid-cols: 3;
+  --xid-cols: 4;
 }
 
 html.xid-grid div[data-testid="ScrollSnap-List"]:has([data-testid="tweetPhoto"], [data-testid="videoComponent"]):has(> div[role="presentation"] ~ div[role="presentation"] ~ div[role="presentation"] ~ div[role="presentation"] ~ div[role="presentation"]) > div[role="presentation"],

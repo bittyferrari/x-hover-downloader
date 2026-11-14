@@ -72,7 +72,7 @@ window.XID_CONFIG = {
 
   // --- 多圖貼文顯示 ---
   GRID_MEDIA: true,   // true = 把左右滑的 carousel 攤平成一次看得到全部的網格
-  GRID_COLUMNS: 2,    // 網格欄數 (2 = 每張約 50% 寬);超過 4 張時固定一排 3 張、每格最高 50vh
+  GRID_COLUMNS: 2,    // 網格欄數 (2 = 每張約 50% 寬);超過 4 張時固定一排 4 張、每格最高 50vh
 
   // --- 其他 ---
   COOLDOWN_SECONDS: 3,  // 同一張圖/影片觸發後,幾秒內不再重複觸發
