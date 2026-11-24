@@ -216,6 +216,94 @@ html.xid-grid div[data-testid="ScrollSnap-List"]:not([data-testid="card.wrapper"
 }
 
 /* =========================================================================
+   2026-11 新版 carousel:X 拿掉了所有 data-testid (tweetPhoto / ScrollSnap-List
+   / nav[aria-live] 都沒了),上面那組規則抓不到。新版唯一穩定的特徵是
+   carousel 根節點的 inline style 帶 `--x-carousel-bleed-limit-*`。結構:
+
+     div[style="padding-bottom: calc(..%)"]   <- 固定長寬比的外框
+       div (position:absolute)
+         div[style="--x-carousel-bleed-limit-..."]   <- 根節點 (R)
+           div                                        <- 會往左右「出血」
+             div (flex + scroll-snap)                 <- 清單
+               div[style="aspect-ratio: ..."]         <- 每一張 (slide)
+
+   一樣只處理裡面真的有推文媒體 (pbs.twimg.com/media 或影片) 的 carousel。
+   ========================================================================= */
+
+/* 1. 長寬比外框 -> 高度自動 */
+html.xid-grid div[style*="padding-bottom"]:has(> div > [style*="--x-carousel-bleed-limit"] :is(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video)) {
+  padding-bottom: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* 2. absolute 填滿外框的那層 -> 正常流排版 */
+html.xid-grid div:has(> [style*="--x-carousel-bleed-limit"] :is(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video)) {
+  position: static !important;
+  inset: auto !important;
+  height: auto !important;
+}
+
+/* 3. 根節點 + 出血層:取消左右出血,寬度貼齊 */
+html.xid-grid [style*="--x-carousel-bleed-limit"]:has(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video),
+html.xid-grid [style*="--x-carousel-bleed-limit"]:has(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video) > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+  overflow: visible !important;
+}
+
+/* 4. 橫向捲動清單 -> 會換行的網格 */
+html.xid-grid [style*="--x-carousel-bleed-limit"]:has(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video) > div > div {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  gap: var(--xid-gap) !important;
+  width: 100% !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  scroll-snap-type: none !important;
+  scroll-padding: 0 !important;
+  transform: none !important;
+}
+
+/* 5. 每一張:寬度 = 1/欄數,高度交給它自己的 aspect-ratio 算 */
+html.xid-grid [style*="--x-carousel-bleed-limit"]:has(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video) > div > div > * {
+  flex: 0 0 calc((100% - (var(--xid-cols) - 1) * var(--xid-gap)) / var(--xid-cols)) !important;
+  width: calc((100% - (var(--xid-cols) - 1) * var(--xid-gap)) / var(--xid-cols)) !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+  scroll-snap-align: none !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+/* 6. 超過 4 張:一排 4 張,每格最高 50vh */
+html.xid-grid [style*="--x-carousel-bleed-limit"]:has(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video) > div > div:has(> :nth-child(5)) {
+  --xid-cols: 4;
+}
+html.xid-grid [style*="--x-carousel-bleed-limit"]:has(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video) > div > div:has(> :nth-child(5)) > * {
+  max-height: 50vh !important;
+}
+html.xid-grid [style*="--x-carousel-bleed-limit"]:has(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video) > div > div:has(> :nth-child(5)) > * :is(img, video) {
+  object-fit: cover !important;
+}
+
+/* 7. 藏掉左右箭頭:根節點裡、但不在任何一張 slide 裡面的按鈕
+      (slide 裡的按鈕是影片播放器的,要留著) */
+html.xid-grid [style*="--x-carousel-bleed-limit"]:has(img[src*="pbs.twimg.com/media/"], img[src*="video_thumb"], video) button:not([style*="--x-carousel-bleed-limit"] > div > div > * button) {
+  display: none !important;
+}
+
+/* =========================================================================
    長寬比保險絲
    X 少數貼文會把外框算成 `aspect-ratio: 0.0145833 / 1` (= 1/68.57),
    把圖片拉成超級長條。content.js 會用圖片真實比例把它改回來,這裡再加一道
@@ -223,12 +311,14 @@ html.xid-grid div[data-testid="ScrollSnap-List"]:not([data-testid="card.wrapper"
    不限定 .xid-grid,因為單圖貼文也會中。
    ========================================================================= */
 
-div[style*="aspect-ratio"]:has([data-testid="tweetPhoto"]) {
+div[style*="aspect-ratio"]:has([data-testid="tweetPhoto"]),
+div[style*="aspect-ratio"]:has(> div img[src*="pbs.twimg.com/media/"]) {
   max-height: 85vh !important;
   overflow: hidden !important;
 }
 
-div[style*="aspect-ratio"]:has([data-testid="tweetPhoto"]) img {
+div[style*="aspect-ratio"]:has([data-testid="tweetPhoto"]) img,
+div[style*="aspect-ratio"]:has(> div img[src*="pbs.twimg.com/media/"]) img {
   object-fit: cover !important;
 }
 
