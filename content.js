@@ -604,6 +604,11 @@
       }
       format = (format || "jpg").toLowerCase();
       if (format === "jpeg") format = "jpg";
+      // X now serves timeline images as format=webp, but name=orig only
+      // exists for the original upload format (jpg/png) -> webp+orig is 404
+      // and Chrome saves the error page as .txt. Ask for jpg instead; the
+      // background worker probes png/webp as fallbacks.
+      if (format !== "jpg" && format !== "png" && format !== "gif") format = "jpg";
       u.searchParams.set("format", format);
       u.searchParams.set("name", "orig");
       return { url: u.toString(), ext: format };

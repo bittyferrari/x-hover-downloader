@@ -11,6 +11,58 @@
 
 const STORE = "xid_downloaded"; // { url: true } in chrome.storage.session
 
+// ---- image URL resolver ----------------------------------------------------
+// name=orig only works with the original upload format. Try the likely
+// combinations and return the first one that answers with an image.
+const EXT_BY_TYPE = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+async function probe(url) {
+  try {
+    let r = await fetch(url, { method: "HEAD", cache: "no-store" });
+    if (r.status === 405) r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) return null;
+    const type = (r.headers.get("content-type") || "").split(";")[0].trim();
+    const ext = EXT_BY_TYPE[type];
+    return ext ? { url, ext } : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function resolveImage(rawUrl) {
+  let base;
+  try {
+    base = new URL(rawUrl);
+  } catch (e) {
+    return null;
+  }
+  const first = base.searchParams.get("format") || "jpg";
+  const tries = [];
+  const add = (format, name) => {
+    const u = new URL(base.toString());
+    u.searchParams.set("format", format);
+    u.searchParams.set("name", name);
+    const s = u.toString();
+    if (!tries.includes(s)) tries.push(s);
+  };
+  add(first, "orig");
+  add("jpg", "orig");
+  add("png", "orig");
+  add("webp", "4096x4096");
+  add("jpg", "4096x4096");
+  add("webp", "large");
+  for (const t of tries) {
+    const r = await probe(t);
+    if (r) return r;
+  }
+  return null;
+}
+
 // ---- syndication API (video fallback) -------------------------------------
 
 function resFromUrl(url) {
@@ -129,10 +181,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return;
     }
 
+    // pbs.twimg.com images: make sure the URL really returns an image, and
+    // name the file after what the server actually sends.
+    let dlUrl = msg.url;
+    let dlName = msg.filename;
+    if (/pbs\.twimg\.com\/media\//.test(msg.url)) {
+      const r = await resolveImage(msg.url);
+      if (!r) {
+        sendResponse({ ok: false, error: "image not found (404)" });
+        return;
+      }
+      dlUrl = r.url;
+      dlName = msg.filename.replace(/\.[A-Za-z0-9]+$/, "") + "." + r.ext;
+    }
+
     chrome.downloads.download(
       {
-        url: msg.url,
-        filename: msg.filename,
+        url: dlUrl,
+        filename: dlName,
         saveAs: false,
         conflictAction: "overwrite", // never spawn " (1)" duplicates
       },
